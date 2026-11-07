@@ -1,0 +1,16 @@
+KWOP-BUILD.md
+.env*
+!.env.example
+node_modules/
+.next/
+.vercel/
+out/
+coverage/
+test-results/
+playwright-report/
+shots/
+*.log
+.DS_Store
+next-env.d.ts
+*.tsbuildinfo
+supabase/.temp/
