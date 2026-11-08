@@ -4,7 +4,7 @@ import { QUOTAS, track } from "@/lib/kwop";
 import { db } from "@/lib/supabase/admin";
 import { err, json } from "@/lib/http";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 /** Remix: the same fridge, a different dish. Counts as one recipe of the plan. */
 export async function POST(_req: Request, ctx: RouteContext<"/api/recipes/[id]/remix">) {

@@ -7,7 +7,7 @@ import { supabaseConfigured } from "@/lib/supabase/config";
 import { db } from "@/lib/supabase/admin";
 import type { Diet } from "@/lib/types";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const EXAMPLES = ["half-empty-fridge", "pantry-shelf", "leftovers-night"] as const;
 const DietSchema = z.array(z.enum(["vegetarian", "vegan", "keto", "gluten-free", "dairy-free", "high-protein"])).max(6);

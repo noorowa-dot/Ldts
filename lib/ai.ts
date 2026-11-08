@@ -7,13 +7,13 @@ import type { Diet, Generated } from "./types";
  * Quotas are checked by the caller (lib/quota.ts) before calling these.
  */
 
-const MODELS = (process.env.GEMINI_MODEL || "gemini-3.8-flash,gemini-3.7-flash,gemini-flash-latest,gemini-3.5-flash").split(",").map((s) => s.trim()).filter(Boolean);
+const MODELS = (process.env.GEMINI_MODEL || "gemini-3.8-flash,gemini-flash-lite-latest,gemini-3.7-flash").split(",").map((s) => s.trim()).filter(Boolean);
 
 let client: GoogleGenAI | null = null;
 function ai() {
   if (!process.env.GEMINI_API_KEY) throw new AiError("not_configured", "The AI chef is not configured yet.");
   // One attempt per model, capped: the SDK's default retries (up to 5, with long backoff) would outlast the function.
-  client ??= new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY, httpOptions: { timeout: 22_000, retryOptions: { attempts: 1 } } });
+  client ??= new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY, httpOptions: { retryOptions: { attempts: 1 } } });
   return client;
 }
 
@@ -106,7 +106,8 @@ async function run(parts: object[], o: CookOptions): Promise<Generated> {
   for (const [i, model] of MODELS.entries()) {
     // The newest model gets a second chance after a short pause when Google says it is busy.
     for (let attempt = 0; attempt < (i === 0 ? 2 : 1); attempt++) {
-      if (Date.now() - started > 40_000) break;
+      const left = 100_000 - (Date.now() - started);
+      if (left < 8_000) break;
       const t0 = Date.now();
       try {
         const res = await ai().models.generateContent({
@@ -117,7 +118,8 @@ async function run(parts: object[], o: CookOptions): Promise<Generated> {
             responseMimeType: "application/json",
             responseJsonSchema: schema,
             temperature: o.avoidTitles?.length ? 1 : 0.7,
-            thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+            thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
+            httpOptions: { timeout: Math.min(i === 0 ? 45_000 : 30_000, left), retryOptions: { attempts: 1 } },
           },
         });
         console.log(`[ai] ${model} answered in ${Date.now() - t0} ms`);
