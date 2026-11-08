@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { db } from "./supabase/admin";
 import { getUser, type SessionUser } from "./supabase/server";
 import { getApp, getPlan, QUOTAS, tierOf, type PlanState, type Tier, type KwopPlan } from "./kwop";
+import { getComp, higherTier, tierLabel, type Comp } from "./vouchers";
 import type { Generated, RecipeBody, RecipeTeaser, RecipeView } from "./types";
 
 export const ANON_DAILY = 3;
@@ -17,7 +18,16 @@ export type Ctx = {
   plan: PlanState;
   plans: KwopPlan[];
   tier: Tier;
+  /** Free access from a voucher (owner, creators, partners), if any. */
+  comp: Comp | null;
 };
+
+/** What to call the person's access: the paid plan's name, or "<Tier> · voucher". */
+export function planLabel(ctx: Ctx): string | null {
+  if (ctx.plan.paid && ctx.plan.plan && (!ctx.comp || ctx.tier === tierOf(ctx.plan.plan, ctx.plans))) return ctx.plan.plan.name.replace(/^Platepal\s+/i, "");
+  if (ctx.comp) return `${tierLabel(ctx.comp.tier)} · voucher`;
+  return null;
+}
 
 export async function getCtx(opts: { freshPlan?: boolean } = {}): Promise<Ctx> {
   const [user, jar, h] = await Promise.all([getUser(), cookies(), headers()]);
@@ -25,9 +35,14 @@ export async function getCtx(opts: { freshPlan?: boolean } = {}): Promise<Ctx> {
   const anonId = anon && /^[0-9a-f-]{36}$/.test(anon) ? anon : null;
   const ip = (h.get("x-forwarded-for") || h.get("x-real-ip") || "0.0.0.0").split(",")[0].trim();
   const ipHash = createHash("sha256").update((process.env.IP_SALT || "platepal") + ip).digest("hex").slice(0, 32);
-  const [plan, app] = await Promise.all([user ? getPlan(user.email, { fresh: opts.freshPlan }) : Promise.resolve({ paid: false, plan: null, status: null, until: null } as PlanState), getApp()]);
-  const tier = plan.paid ? tierOf(plan.plan, app.plans) : "none";
-  return { user, anonId, ipHash, plan, plans: app.plans, tier };
+  const [plan, app, comp] = await Promise.all([
+    user ? getPlan(user.email, { fresh: opts.freshPlan }) : Promise.resolve({ paid: false, plan: null, status: null, until: null } as PlanState),
+    getApp(),
+    getComp(user?.id),
+  ]);
+  const paidTier = plan.paid ? tierOf(plan.plan, app.plans) : "none";
+  const tier = comp ? higherTier(paidTier, comp.tier) : paidTier;
+  return { user, anonId, ipHash, plan, plans: app.plans, tier, comp };
 }
 
 /** Start of the current billing period: the plan's renewal day-of-month, else the calendar month. */
@@ -172,7 +187,7 @@ export async function toView(ctx: Ctx, row: Row): Promise<RecipeView> {
   const body = ((data as { body: RecipeBody } | null)?.body ?? { ingredients: [], steps: [], shopping: [], tip: "", macros: { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 } }) as RecipeBody;
   const q = QUOTAS[ctx.tier];
   const unlocked = ctx.tier !== "none" && Boolean(ctx.user && row.user_id === ctx.user.id);
-  const access = { unlocked, shopping: unlocked && q.shopping, macros: unlocked && q.macros, planName: ctx.plan.plan?.name?.replace(/^Platepal\s+/i, "") ?? null, tier: ctx.tier };
+  const access = { unlocked, shopping: unlocked && q.shopping, macros: unlocked && q.macros, planName: planLabel(ctx), tier: ctx.tier };
   const seed = parseInt(row.id.slice(0, 6), 16) % 1000;
   const view: RecipeBody = {
     ingredients: body.ingredients.map((i) =>

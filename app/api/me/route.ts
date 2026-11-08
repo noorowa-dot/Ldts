@@ -10,6 +10,7 @@ export async function GET() {
     user: { email: c.user.email },
     tier: c.tier,
     plan: c.plan.plan ? { ...c.plan.plan, name: c.plan.plan.name.replace(/^Platepal\s+/i, "") } : null,
+    voucher: c.comp,
     status: c.plan.status,
     until: c.plan.until,
     usage: { used: a.used, limit: a.limit, period_start: periodStart(c.plan).toISOString() },

@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { CreditCard, LogOut, Trash2, ExternalLink, Loader2 } from "lucide-react";
+import { CreditCard, LogOut, Trash2, ExternalLink, Loader2, Ticket, Check } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useMe } from "./me-context";
 import { PageTitle } from "./app-shell";
@@ -66,14 +66,17 @@ export function AccountPage() {
         <h2 className="flex items-center gap-2 font-sans text-[17px] font-semibold tracking-normal"><CreditCard className="h-5 w-5" /> Plan & billing</h2>
         <div className="mt-2">
           <Row k="Current plan" v={me.planName ?? "Free"} />
-          {me.planName && <Row k={me.status === "canceled" || me.status === "canceling" ? "Ends on" : "Renews on"} v={renew ?? "Each month"} />}
+          {me.planName && !me.voucher && <Row k={me.status === "canceled" || me.status === "canceling" ? "Ends on" : "Renews on"} v={renew ?? "Each month"} />}
+          {me.voucher && <Row k="Billing" v="Free access with a voucher" />}
           <Row k={me.tier === "none" ? "Recipes today" : "Recipes this month"} v={`${me.used} of ${me.limit}`} />
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
-          <a href="/pricing" className="inline-flex h-11 items-center rounded-full bg-tomato px-5 font-semibold text-white active:scale-95" data-testid="change-plan">
-            {me.planName ? "Change plan" : "See plans"}
-          </a>
-          {me.planName && cancelStep === 0 && (
+          {!me.voucher && (
+            <a href="/pricing" className="inline-flex h-11 items-center rounded-full bg-tomato px-5 font-semibold text-white active:scale-95" data-testid="change-plan">
+              {me.planName ? "Change plan" : "See plans"}
+            </a>
+          )}
+          {me.planName && !me.voucher && cancelStep === 0 && (
             <button onClick={() => setCancelStep(1)} className="h-11 cursor-pointer rounded-full border border-border px-5 font-semibold" data-testid="cancel-sub">
               Cancel my subscription
             </button>
@@ -103,6 +106,8 @@ export function AccountPage() {
         )}
       </section>
 
+      <VoucherBox />
+
       <section className="recipe-card p-5 sm:p-6">
         <button onClick={signOut} className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-full border border-border px-5 font-semibold" data-testid="sign-out">
           <LogOut className="h-4 w-4" /> Log out
@@ -129,5 +134,54 @@ export function AccountPage() {
         <a href="/terms" className="underline">Terms</a> · <a href="/privacy" className="underline">Privacy</a>
       </p>
     </div>
+  );
+}
+
+function VoucherBox() {
+  const router = useRouter();
+  const [code, setCode] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [msg, setMsg] = React.useState<{ ok: boolean; text: string } | null>(null);
+  async function redeem(e: React.FormEvent) {
+    e.preventDefault();
+    if (code.trim().length < 6) return setMsg({ ok: false, text: "Type the full code." });
+    setBusy(true);
+    setMsg(null);
+    const r = await fetch("/api/voucher", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
+    const d = await r.json().catch(() => ({}));
+    setBusy(false);
+    if (!r.ok) return setMsg({ ok: false, text: d.message || "That code doesn't match a voucher." });
+    setCode("");
+    setMsg({ ok: true, text: `Done: you're on ${d.label}${d.until ? ` until ${new Date(d.until).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}` : ""}.` });
+    router.refresh();
+  }
+  return (
+    <section className="recipe-card p-5 sm:p-6" id="voucher">
+      <h2 className="flex items-center gap-2 font-sans text-[17px] font-semibold tracking-normal">
+        <Ticket className="h-5 w-5" /> Have a voucher?
+      </h2>
+      <form onSubmit={redeem} className="mt-3 flex flex-wrap gap-2">
+        <input
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          placeholder="PP-XXXX-XXXX-XXXX"
+          autoCapitalize="characters"
+          autoComplete="off"
+          spellCheck={false}
+          maxLength={64}
+          aria-label="Voucher code"
+          className="h-11 min-w-0 flex-1 rounded-full border border-border bg-surface px-4 font-mono text-[15px] uppercase tracking-wider outline-none focus:border-tomato"
+          data-testid="voucher-input"
+        />
+        <button type="submit" disabled={busy} className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-full bg-ink px-5 font-semibold text-cream disabled:opacity-60 dark:bg-cream dark:text-ink" data-testid="voucher-redeem">
+          {busy && <Loader2 className="h-4 w-4 animate-spin" />} Redeem
+        </button>
+      </form>
+      {msg && (
+        <p className={msg.ok ? "mt-3 flex items-center gap-2 rounded-xl bg-olive-soft px-3 py-2.5 text-[14px] font-semibold text-olive" : "mt-2 text-[14px] text-tomato-deep"} data-testid="voucher-msg">
+          {msg.ok && <Check className="h-4 w-4" />} {msg.text}
+        </p>
+      )}
+    </section>
   );
 }

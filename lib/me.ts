@@ -1,6 +1,6 @@
 import "server-only";
 import { redirect } from "next/navigation";
-import { allowance, getCtx, periodStart } from "./recipes";
+import { allowance, getCtx, periodStart, planLabel } from "./recipes";
 import { QUOTAS, type Tier } from "./kwop";
 import { db } from "./supabase/admin";
 
@@ -8,6 +8,8 @@ export type Me = {
   email: string;
   tier: Tier;
   planName: string | null;
+  /** True when access comes from a voucher, not a payment (nothing to cancel). */
+  voucher: boolean;
   planId: number | null;
   status: string | null;
   until: string | null;
@@ -27,7 +29,8 @@ export async function requireMe(next = "/app"): Promise<Me> {
   return {
     email: ctx.user.email,
     tier: ctx.tier,
-    planName: ctx.plan.plan?.name.replace(/^Platepal\s+/i, "") ?? null,
+    planName: planLabel(ctx),
+    voucher: Boolean(ctx.comp) && !(ctx.plan.paid && ctx.plan.plan),
     planId: ctx.plan.plan?.id ?? null,
     status: ctx.plan.status,
     until: ctx.plan.until,
