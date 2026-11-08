@@ -7,7 +7,7 @@ import type { Diet, Generated } from "./types";
  * Quotas are checked by the caller (lib/quota.ts) before calling these.
  */
 
-const MODELS = (process.env.GEMINI_MODEL || "gemini-3.8-flash,gemini-flash-lite-latest,gemini-3.7-flash").split(",").map((s) => s.trim()).filter(Boolean);
+const MODELS = (process.env.GEMINI_MODEL || "gemini-3.8-flash,gemini-3.5-flash-lite,gemini-3.1-flash-lite").split(",").map((s) => s.trim()).filter(Boolean);
 
 let client: GoogleGenAI | null = null;
 function ai() {
@@ -105,7 +105,8 @@ async function run(parts: object[], o: CookOptions): Promise<Generated> {
   const started = Date.now();
   for (const [i, model] of MODELS.entries()) {
     // The newest model gets a second chance after a short pause when Google says it is busy.
-    for (let attempt = 0; attempt < (i === 0 ? 2 : 1); attempt++) {
+    let thinking = true;
+    for (let attempt = 0; attempt < (i === 0 ? 2 : 1) + 1; attempt++) {
       const left = 100_000 - (Date.now() - started);
       if (left < 8_000) break;
       const t0 = Date.now();
@@ -118,7 +119,7 @@ async function run(parts: object[], o: CookOptions): Promise<Generated> {
             responseMimeType: "application/json",
             responseJsonSchema: schema,
             temperature: o.avoidTitles?.length ? 1 : 0.7,
-            thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
+            ...(thinking ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } } : {}),
             httpOptions: { timeout: Math.min(i === 0 ? 45_000 : 30_000, left), retryOptions: { attempts: 1 } },
           },
         });
@@ -130,6 +131,10 @@ async function run(parts: object[], o: CookOptions): Promise<Generated> {
         if (e instanceof AiError) throw e;
         lastErr = e;
         console.error(`[ai] ${model} failed after ${Date.now() - t0} ms:`, (e as Error)?.message?.slice(0, 300));
+        if (thinking && /thinking/i.test(String((e as Error)?.message))) {
+          thinking = false; // this model has no thinking levels: ask again without it
+          continue;
+        }
         if (attempt === 0 && i === 0 && isBusy(e)) {
           await new Promise((r) => setTimeout(r, 1500));
           continue;
