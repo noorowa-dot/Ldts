@@ -77,8 +77,11 @@ export function TryFirst({ signedIn = false, initialRecipe = null, autoUnlock = 
       returnPath={recipe ? `/r/${recipe.id}?unlock=1` : "/app"}
       onAuthed={async () => {
         setAuthed(true);
-        if (recipe) await refetch(recipe.id);
-        router.refresh();
+        if (recipe) {
+          await refetch(recipe.id);
+          // The recipe page (header, session) re-renders for the signed-in user and opens the paywall over the recipe.
+          router.replace(`/r/${recipe.id}?unlock=1`, { scroll: false });
+        } else router.refresh();
       }}
       onUnlocked={async () => {
         if (recipe) {
