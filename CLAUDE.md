@@ -231,3 +231,24 @@ every table, SQL in `supabase/migrations`) · Vercel (free) · Gemini through `l
 - The funnel sheets (auth, paywall, Whop, film) are code-split and preloaded when a recipe appears.
 - Ingredient stickers on photos use collision-aware placement; all items are also listed as stickers under the photo.
 - Share links (`/s/[id]`) show only the title, time and ingredient names: never the photo or the paid steps.
+
+## Production
+- Live: **https://platepal-2.vercel.app** (Vercel project `platepal-2`, framework preset set by `vercel.json`, region iad1).
+- Kwop: connected (`POST KWOP_API/connect` → ok). `https://kwop.io/platepal-2/app` redirects to the app.
+- Supabase project `platepal-2`, ref `ftqyrztnxzvvrcfdjkhh`, us-east-1. Auth: email confirmation OFF, site URL + redirect
+  URLs set from `supabase/config.toml` (`npx supabase config push --yes` after `config diff`).
+- Migrations: the cloud sandbox cannot open Postgres TCP, so they are applied with
+  `npx supabase db query --remote --yes -f supabase/migrations/<file>.sql` and recorded in `supabase_migrations.schema_migrations`.
+- Vercel env (production): KWOP_API, NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY (type config: public by design),
+  SUPABASE_SERVICE_ROLE_KEY, NEXT_PUBLIC_SITE_URL, GEMINI_MODEL, IP_SALT, NEXT_PUBLIC_GOOGLE_ENABLED=0.
+- Verified live: sign-up (new email) → app → paywall → Whop checkout inside the sheet; `?k=`/`?plan=`/`utm_` cookies;
+  RLS cross-user test (no reads/updates/deletes of another user's rows, no client inserts, bodies server-only);
+  Lighthouse mobile on `/`: 97 / 100 / 100 / 100.
+
+## Still to do (owner action)
+- **GEMINI_API_KEY**: add it in Vercel → platepal-2 → Settings → Environment Variables (Production), then redeploy.
+  Until then `/api/scan` answers `ai_off` ("The AI chef is warming up"). Then run `npm run test:e2e` against production
+  (`BASE_URL=https://platepal-2.vercel.app`) 3× on phone + computer.
+- **Google sign-in**: Google OAuth client → redirect URI `https://ftqyrztnxzvvrcfdjkhh.supabase.co/auth/v1/callback`;
+  Client ID/secret entered in Supabase → Authentication → Providers → Google; then set NEXT_PUBLIC_GOOGLE_ENABLED=1 and redeploy.
+  The Google button stays hidden until then (never a broken button).
