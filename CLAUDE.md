@@ -278,6 +278,17 @@ every table, SQL in `supabase/migrations`) · Vercel (free) · Gemini through `l
 - `profiles.answers` is server-only (column update revoked): it holds `free_list_used` and daily list-build counters.
 - Tests: `tests/e2e.spec.ts` (funnel) + `tests/week.spec.ts` (plan → list → price check paywall), green on production.
 
+## Vouchers (free access without paying)
+- Tables `vouchers` (code **hash** only, tier, optional email lock, max uses, optional months / expiry, note; RLS on, no
+  policies) and `comp_access` (user → tier, until). Atomic SQL function `redeem_voucher` (service role only).
+- `getCtx()` takes the higher of the paid tier (Kwop) and the voucher tier; `planLabel()` shows e.g. "Chef · voucher".
+  Voucher-only accounts see "Free access with a voucher" in Billing and no cancel button.
+- Redeem: Account → "Have a voucher?" (`POST /api/voucher`, 8 tries/hour/account). Codes look like `PP-XXXX-XXXX-XXXX`,
+  case and dashes don't matter.
+- Create one: `node scripts/make-voucher.mjs --tier chef|pro|starter [--email x] [--uses n] [--months n] [--expires YYYY-MM-DD] [--note "…"] --remote`
+  (prints the code once; never commit codes).
+- Issued: owner account voucher (Chef, no end, 1 use, locked to the owner's email), Nov 8 2026.
+
 ## Still to do (owner action)
 - **Google sign-in**: Google OAuth client → redirect URI `https://ftqyrztnxzvvrcfdjkhh.supabase.co/auth/v1/callback`;
   Client ID/secret entered in Supabase → Authentication → Providers → Google; then set NEXT_PUBLIC_GOOGLE_ENABLED=1 and redeploy.
