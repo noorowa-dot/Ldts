@@ -19,3 +19,4 @@ supabase/.temp/
 /build
 *.pem
 npm-debug.log*
+.vercel
