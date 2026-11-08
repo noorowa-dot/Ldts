@@ -1,26 +1,227 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --ink: #17150f;
+  --ink-2: #211e16;
+  --ink-3: #2c2820;
+  --cream: #fbf6ec;
+  --paper: #fffdf8;
+  --line: #eadfcb;
+  --text: #1f1b14;
+  --muted: #6f6656;
+  --tomato: #e5482f;
+  --tomato-deep: #c93a23;
+  --olive: #6b7a2e;
+  --olive-soft: #e9edd6;
+  --lime: #c8ff3d;
+  --butter: #f4c95d;
+  --butter-soft: #fbf0cf;
+
+  /* app surface tokens (light) */
+  --bg: var(--cream);
+  --surface: var(--paper);
+  --surface-2: #f5eedf;
+  --border: var(--line);
+  --fg: var(--text);
+  --fg-muted: var(--muted);
+}
+
+.dark {
+  --bg: #14120d;
+  --surface: #1d1a13;
+  --surface-2: #26221a;
+  --border: #3a3428;
+  --fg: #f6efe1;
+  --fg-muted: #b5aa95;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-cream: var(--cream);
+  --color-paper: var(--paper);
+  --color-line: var(--line);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-tomato: var(--tomato);
+  --color-tomato-deep: var(--tomato-deep);
+  --color-olive: var(--olive);
+  --color-olive-soft: var(--olive-soft);
+  --color-lime: var(--lime);
+  --color-butter: var(--butter);
+  --color-butter-soft: var(--butter-soft);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+
+  --font-serif: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-sans: var(--font-dmsans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-dmmono), ui-monospace, monospace;
+
+  --radius-card: 18px;
+  --shadow-warm: 0 1px 0 rgb(255 255 255 / 0.6) inset, 0 10px 30px -12px rgb(60 40 10 / 0.25);
+  --shadow-lift: 0 24px 60px -24px rgb(40 25 5 / 0.45);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, .font-serif {
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+  font-variation-settings: "SOFT" 60, "WONK" 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--tomato);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+::selection {
+  background: var(--butter);
+  color: var(--ink);
+}
+
+/* ---------- Signature: dot grid over dark sections ---------- */
+.dot-grid {
+  background-image: radial-gradient(rgb(251 246 236 / 0.18) 1px, transparent 1.5px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 30%, transparent 75%);
+}
+
+.glow-top {
+  background: radial-gradient(ellipse 50% 60% at 50% 0%, rgb(229 72 47 / 0.32), transparent 70%);
+}
+
+/* ---------- Type helpers ---------- */
+.label-mono {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 11px;
+}
+
+.title-xl {
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1.02;
+}
+
+.text-gradient-cream {
+  background: linear-gradient(180deg, #fbf6ec 0%, #b9ad97 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.text-gradient-ink {
+  background: linear-gradient(180deg, #1f1b14 0%, #8a7f6c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---------- Signature: recipe card ---------- */
+.recipe-card {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-warm);
+}
+.recipe-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 18px auto 18px;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--tomato);
+}
+.ruled {
+  background-image: repeating-linear-gradient(to bottom, transparent 0 31px, rgb(234 223 203 / 0.7) 31px 32px);
+}
+.dark .ruled {
+  background-image: repeating-linear-gradient(to bottom, transparent 0 31px, rgb(58 52 40 / 0.7) 31px 32px);
+}
+
+/* ---------- Signature: produce sticker ---------- */
+.sticker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 5px 11px 5px 9px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.5) inset, 0 2px 6px -2px rgb(40 25 5 / 0.35);
+  white-space: nowrap;
+}
+
+/* ---------- Main button breathing glow + arrow nudge ---------- */
+@keyframes breathe {
+  0%, 100% { opacity: 0.45; transform: scale(0.96); }
+  50% { opacity: 0.85; transform: scale(1.04); }
+}
+@keyframes nudge {
+  0%, 80%, 100% { transform: translateX(0); }
+  86% { transform: translateX(4px); }
+  92% { transform: translateX(-1px); }
+}
+.btn-glow { animation: breathe 3.6s ease-in-out infinite; }
+.arrow-nudge { animation: nudge 2.6s ease-in-out infinite; }
+
+/* ---------- Scan line ---------- */
+@keyframes scan {
+  0% { top: 4%; }
+  50% { top: 92%; }
+  100% { top: 4%; }
+}
+.scan-line { animation: scan 2.4s cubic-bezier(.45, 0, .55, 1) infinite; }
+
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 0%, var(--surface) 50%, var(--surface-2) 100%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: 10px;
+}
+
+/* ---------- Locked (blurred) content ---------- */
+.locked {
+  filter: blur(6px);
+  user-select: none;
+  pointer-events: none;
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
