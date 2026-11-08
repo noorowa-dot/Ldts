@@ -253,8 +253,9 @@ every table, SQL in `supabase/migrations`) · Vercel (free) · Gemini through `l
 - Observed Nov 8: gemini-3.8-flash answered 503 "high demand", then 429 "quota exceeded" on the free key after a few calls;
   gemini-2.5-flash is closed to new keys (404); `gemini-flash-lite-latest` is not found. Flash-Lite answers in ~3 s.
   → For real traffic, turn on billing for the key (aistudio.google.com → Billing) so the newest model is not rate-limited.
-- Measured live: photo → recipe in ~9 s. E2E against production: 11 of 12 runs green (3 runs × phone + computer, twice);
-  the single failure was on an external step (no server error logged).
+- Measured live: photo → recipe in ~9 s. E2E against production: green 3× on phone + computer, including right after
+  fresh deploys (cold start). A cold-start race (page switch after sign-up closing the checkout) was found and fixed:
+  on the landing page, sign-up no longer navigates; the paywall opens in place.
 
 ## Still to do (owner action)
 - **Google sign-in**: Google OAuth client → redirect URI `https://ftqyrztnxzvvrcfdjkhh.supabase.co/auth/v1/callback`;
