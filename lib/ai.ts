@@ -7,7 +7,7 @@ import type { Diet, Generated } from "./types";
  * Quotas are checked by the caller (lib/quota.ts) before calling these.
  */
 
-const MODELS = (process.env.GEMINI_MODEL || "gemini-3.8-flash,gemini-2.5-flash").split(",").map((s) => s.trim());
+const MODELS = (process.env.GEMINI_MODEL || "gemini-3.8-flash,gemini-3.7-flash,gemini-flash-latest,gemini-3.5-flash").split(",").map((s) => s.trim()).filter(Boolean);
 
 let client: GoogleGenAI | null = null;
 function ai() {
@@ -98,30 +98,42 @@ function instructions(o: CookOptions) {
   return lines.join("\n");
 }
 
+const isBusy = (e: unknown) => /\b(503|429)\b|UNAVAILABLE|RESOURCE_EXHAUSTED|high demand/i.test(String((e as Error)?.message ?? e));
+
 async function run(parts: object[], o: CookOptions): Promise<Generated> {
   let lastErr: unknown;
-  for (const model of MODELS) {
-    const t0 = Date.now();
-    try {
-      const res = await ai().models.generateContent({
-        model,
-        contents: [{ role: "user", parts }],
-        config: {
-          systemInstruction: instructions(o),
-          responseMimeType: "application/json",
-          responseJsonSchema: schema,
-          temperature: o.avoidTitles?.length ? 1 : 0.7,
-          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
-        },
-      });
-      console.log(`[ai] ${model} answered in ${Date.now() - t0} ms`);
-      const data = JSON.parse(res.text ?? "{}");
-      if (data.no_food || !data.found?.length) throw new AiError("no_food", "We couldn't spot any food in that photo.");
-      return sanitize(data);
-    } catch (e) {
-      if (e instanceof AiError) throw e;
-      lastErr = e;
-      console.error(`[ai] ${model} failed after ${Date.now() - t0} ms:`, (e as Error)?.message?.slice(0, 400));
+  const started = Date.now();
+  for (const [i, model] of MODELS.entries()) {
+    // The newest model gets a second chance after a short pause when Google says it is busy.
+    for (let attempt = 0; attempt < (i === 0 ? 2 : 1); attempt++) {
+      if (Date.now() - started > 40_000) break;
+      const t0 = Date.now();
+      try {
+        const res = await ai().models.generateContent({
+          model,
+          contents: [{ role: "user", parts }],
+          config: {
+            systemInstruction: instructions(o),
+            responseMimeType: "application/json",
+            responseJsonSchema: schema,
+            temperature: o.avoidTitles?.length ? 1 : 0.7,
+            thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+          },
+        });
+        console.log(`[ai] ${model} answered in ${Date.now() - t0} ms`);
+        const data = JSON.parse(res.text ?? "{}");
+        if (data.no_food || !data.found?.length) throw new AiError("no_food", "We couldn't spot any food in that photo.");
+        return sanitize(data);
+      } catch (e) {
+        if (e instanceof AiError) throw e;
+        lastErr = e;
+        console.error(`[ai] ${model} failed after ${Date.now() - t0} ms:`, (e as Error)?.message?.slice(0, 300));
+        if (attempt === 0 && i === 0 && isBusy(e)) {
+          await new Promise((r) => setTimeout(r, 1500));
+          continue;
+        }
+        break;
+      }
     }
   }
   throw new AiError("failed", (lastErr as Error)?.message || "The AI chef could not answer.");
