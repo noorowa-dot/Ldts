@@ -8,6 +8,7 @@ export const DIETS: { id: Diet; label: string }[] = [
   { id: "high-protein", label: "High-protein" },
 ];
 
+/** x/y in percent of the photo; -1 when the position is unknown (no pin on the photo). */
 export type FoundItem = { name: string; x: number; y: number };
 
 export type RecipeBody = {

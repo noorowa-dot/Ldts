@@ -57,7 +57,7 @@ export function PhotoWithStickers({ recipe, className, live = false }: { recipe:
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const found = recipe.found.slice(0, 10);
+  const found = recipe.found.filter((f) => f.x >= 0 && f.y >= 0).slice(0, 10);
   const placed = size ? placeLabels(found, size.w, size.h) : found.map((_, i) => ({ i, side: null }));
   return (
     <div ref={ref} className={cn("relative overflow-hidden bg-ink-3", className)}>

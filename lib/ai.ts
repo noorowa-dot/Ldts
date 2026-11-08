@@ -33,7 +33,7 @@ const schema = {
     no_food: { type: "boolean", description: "true only if the photo shows no food or ingredients at all" },
     found: {
       type: "array",
-      description: "Every distinct food item you can see, most visible first (max 14). x/y = its center in the photo, 0-100 percent from the left/top.",
+      description: "Every distinct food item you can see, most visible first (max 14). x/y = the center of that item in the photo, on a 0-1000 scale (0,0 = top-left, 1000,1000 = bottom-right). Each item gets its own position.",
       items: {
         type: "object",
         properties: { name: { type: "string" }, x: { type: "number" }, y: { type: "number" } },
@@ -181,6 +181,22 @@ function str(s: unknown, max: number) {
   return String(s ?? "").trim().slice(0, max);
 }
 
+/**
+ * Positions come back on Gemini's 0-1000 scale (sometimes 0-100 or 0-1): normalize to percent.
+ * When they are clearly unusable (all piled on one spot), they are dropped and the photo shows no pins.
+ */
+function placeFound(raw: Record<string, unknown>[]) {
+  const pts = raw.map((f) => ({ name: nice(str(f.name, 40)), x: Number(f.x), y: Number(f.y) }));
+  const max = Math.max(0, ...pts.flatMap((p) => [p.x, p.y]).filter(Number.isFinite));
+  const k = max > 100 ? 0.1 : max <= 1 ? 100 : 1;
+  const found = dedupe(
+    pts.map((p) => ({ name: p.name, x: clamp(p.x * k, 4, 96, -1), y: clamp(p.y * k, 6, 94, -1) }))
+  ).slice(0, 14);
+  const distinct = new Set(found.map((f) => `${Math.round(f.x / 8)}:${Math.round(f.y / 8)}`)).size;
+  const usable = found.length <= 1 || distinct >= Math.ceil(found.length * 0.6);
+  return found.map((f) => (usable && f.x >= 0 && f.y >= 0 ? f : { name: f.name, x: -1, y: -1 }));
+}
+
 /** "dozen eggs" → "Eggs", "lemon" → "Lemon". */
 function nice(name: string) {
   const n = name.replace(/^(a |an |some |dozen |half (a )?|one |two |three )/i, "").trim();
@@ -199,13 +215,7 @@ function dedupe<T extends { name: string }>(xs: T[]) {
 function sanitize(d: Record<string, unknown>): Generated {
   const arr = (v: unknown) => (Array.isArray(v) ? v : []);
   return {
-    found: dedupe(
-      arr(d.found).map((f: Record<string, unknown>) => ({
-        name: nice(str(f.name, 40)),
-        x: clamp(f.x, 4, 96, 50),
-        y: clamp(f.y, 6, 94, 50),
-      }))
-    ).slice(0, 14),
+    found: placeFound(arr(d.found)),
     title: str(d.title, 70) || "Fridge Rescue Skillet",
     intro: str(d.intro, 200),
     time_minutes: clamp(d.time_minutes, 5, 180, 25),
