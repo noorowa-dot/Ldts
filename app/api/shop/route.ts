@@ -4,7 +4,7 @@ import { QUOTAS, track } from "@/lib/kwop";
 import { db } from "@/lib/supabase/admin";
 import { pantry, weekMeals } from "@/lib/plan";
 import { shopState } from "@/lib/shop";
-import { parseWeek } from "@/lib/week";
+import { itemKey, parseWeek } from "@/lib/week";
 import { AiError, aiConfigured, buildShoppingList } from "@/lib/ai";
 import { err, json } from "@/lib/http";
 import type { RecipeBody } from "@/lib/types";
@@ -61,6 +61,7 @@ export async function POST(req: Request) {
   const { data: bodies } = await db().from("recipe_bodies").select("recipe_id,body").in("recipe_id", ids);
   const byId = new Map(((bodies ?? []) as { recipe_id: string; body: RecipeBody }[]).map((b) => [b.recipe_id, b.body]));
   try {
+    const home = await pantry(c);
     const lines = await buildShoppingList({
       meals: meals.map((m) => ({
         title: m.recipe.title,
@@ -68,8 +69,17 @@ export async function POST(req: Request) {
         recipe_servings: m.recipe.servings,
         ingredients: (byId.get(m.recipe.id)?.ingredients ?? []).map((i) => ({ item: i.item, amount: i.amount })),
       })),
-      pantry: await pantry(c),
+      pantry: home,
     });
+    // "Already at home" is decided here, not by the model: only what was seen in their fridge photos, plus basic staples.
+    const homeKeys = home.map(itemKey).filter((k) => k.length >= 3);
+    const STAPLE = /^(salt|kosher salt|sea salt|pepper|black pepper|ground black pepper|water|oil|cooking oil|vegetable oil|olive oil|extra virgin olive oil|cooking spray)$/;
+    // "brown rice" is covered by "rice" (same main word at the end); "rice vinegar" is not.
+    const sameThing = (a: string, b: string) => a === b || (b.length >= 3 && a.endsWith(" " + b)) || (a.length >= 3 && b.endsWith(" " + a));
+    for (const l of lines) {
+      const k = itemKey(l.name);
+      l.have_at_home = STAPLE.test(k) || homeKeys.some((h) => sameThing(k, h));
+    }
     // Replace the assistant's items; keep what the person added by hand and what they already ticked.
     const { data: old } = await db().from("shop_items").select("name,checked").eq("user_id", uid).eq("week_start", week).eq("source", "plan");
     const ticked = new Set(((old ?? []) as { name: string; checked: boolean }[]).filter((o) => o.checked).map((o) => o.name.toLowerCase()));
