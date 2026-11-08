@@ -1,12 +1,12 @@
 "use client";
-import { motion, useReducedMotion } from "framer-motion";
+import { m, useReducedMotion } from "framer-motion";
 import * as React from "react";
 
 const ease = [0.22, 0.8, 0.24, 1] as const;
 
 export function Reveal({ children, className, delay = 0, as = "div" }: { children: React.ReactNode; className?: string; delay?: number; as?: "div" | "section" | "li" }) {
   const reduce = useReducedMotion();
-  const M = motion[as];
+  const M = m[as];
   if (reduce) return React.createElement(as, { className }, children);
   return (
     <M
@@ -25,7 +25,7 @@ export function Stagger({ children, className }: { children: React.ReactNode; cl
   const reduce = useReducedMotion();
   if (reduce) return <div className={className}>{children}</div>;
   return (
-    <motion.div
+    <m.div
       className={className}
       initial="hidden"
       whileInView="show"
@@ -33,12 +33,12 @@ export function Stagger({ children, className }: { children: React.ReactNode; cl
       variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06 } } }}
     >
       {React.Children.map(children, (child) => (
-        <motion.div
+        <m.div
           variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { duration: 0.5, ease } } }}
         >
           {child}
-        </motion.div>
+        </m.div>
       ))}
-    </motion.div>
+    </m.div>
   );
 }

@@ -13,7 +13,7 @@ type Props = {
   /** Where Google sends the person back (path + query). */
   next: string;
   /** Called once a session exists (email/password). */
-  onDone: () => void | Promise<void>;
+  onDone: (claim: { claimed?: number; latest?: string | null }) => void | Promise<void>;
   submitLabel?: string;
 };
 
@@ -73,8 +73,10 @@ export function AuthForm({ initialMode = "signup", next, onDone, submitLabel }: 
       setBusy(false);
       return setError({ field: "form", text: "Check your inbox to confirm your email, then log in." });
     }
-    await fetch("/api/claim", { method: "POST" }).catch(() => {});
-    await onDone();
+    const claim = await fetch("/api/claim", { method: "POST" })
+      .then((r) => r.json())
+      .catch(() => ({}));
+    await onDone(claim);
     setBusy(false);
   }
 

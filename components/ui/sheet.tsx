@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { AnimatePresence, motion, useReducedMotion, type PanInfo } from "framer-motion";
+import { AnimatePresence, m, useReducedMotion, type PanInfo } from "framer-motion";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -42,7 +42,7 @@ export function Sheet({ open, onClose, children, mode = "bottom", width = 480, l
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0" style={{ zIndex: z }} role="dialog" aria-modal="true" aria-label={label} data-testid={testId}>
-          <motion.div
+          <m.div
             className="absolute inset-0 bg-ink/55 backdrop-blur-[3px]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -50,7 +50,7 @@ export function Sheet({ open, onClose, children, mode = "bottom", width = 480, l
             onClick={onClose}
           />
           <div className={cn("pointer-events-none absolute inset-0 flex justify-center", mode === "bottom" ? "items-end sm:items-center" : "items-stretch sm:items-center")}>
-            <motion.div
+            <m.div
               drag={mode === "bottom" && !reduce ? "y" : false}
               dragConstraints={{ top: 0, bottom: 0 }}
               dragElastic={{ top: 0, bottom: 0.6 }}
@@ -84,7 +84,7 @@ export function Sheet({ open, onClose, children, mode = "bottom", width = 480, l
               </button>
               <div ref={scrollRef} className="relative flex-1 overflow-y-auto overscroll-contain">{children}</div>
               {footer}
-            </motion.div>
+            </m.div>
           </div>
         </div>
       )}

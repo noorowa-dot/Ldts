@@ -1,13 +1,13 @@
 "use client";
 import * as React from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, m, useReducedMotion } from "framer-motion";
 import { Camera, Check, ImagePlus, RotateCcw, Lock, ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { RecipeView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { RecipeCard, PhotoWithStickers } from "./recipe-card";
-import { UnlockProvider, useUnlock } from "./unlock-flow";
+import { UnlockProvider, useUnlock, preloadFunnel } from "./unlock-flow";
 
 export const EXAMPLES = [
   { id: "half-empty-fridge", label: "Half-empty fridge" },
@@ -123,6 +123,10 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock, options }: { reci
   }, [recipe]);
 
   React.useEffect(() => {
+    if (recipe) preloadFunnel();
+  }, [recipe]);
+
+  React.useEffect(() => {
     if (autoUnlock && recipe && !recipe.access.unlocked && !autoOpened.current) {
       autoOpened.current = true;
       setTimeout(openUnlock, 400);
@@ -175,6 +179,7 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock, options }: { reci
         localStorage.setItem("pp_last", JSON.stringify({ id: rec.id, title: rec.title }));
       } catch {}
       await new Promise((res) => setTimeout(res, reduce ? 200 : 1100));
+      preloadFunnel();
       setRecipe(rec);
       setPhase({ kind: "done", recipe: rec });
       options.onResult?.(rec);
@@ -219,7 +224,7 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock, options }: { reci
     <div ref={topRef} className="scroll-mt-24">
       <AnimatePresence mode="wait" initial={false}>
         {phase.kind === "idle" && (
-          <motion.div key="idle" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }}>
+          <m.div key="idle" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }}>
             <label
               onDragOver={(e) => {
                 e.preventDefault();
@@ -238,7 +243,7 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock, options }: { reci
               )}
             >
               <ScanCorners />
-              <span className="relative grid h-16 w-16 place-items-center rounded-full bg-tomato text-white shadow-[0_12px_30px_-10px_rgb(229_72_47/.9)] transition group-hover:scale-105 group-active:scale-95">
+              <span className="relative grid h-16 w-16 place-items-center rounded-full bg-tomato text-white shadow-[0_12px_30px_-10px_rgb(210_64_42/.9)] transition group-hover:scale-105 group-active:scale-95">
                 <Camera className="h-7 w-7" />
                 <span className="btn-glow absolute -inset-2 -z-10 rounded-full bg-tomato/40 blur-lg" />
               </span>
@@ -267,7 +272,7 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock, options }: { reci
                   className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-cream/15 bg-white/[.06] py-1 pl-1 pr-3 font-medium text-cream transition hover:bg-white/[.12] active:scale-95"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={`/examples/${ex.id}.jpg`} alt="" className="h-7 w-7 rounded-full object-cover" />
+                  <img src={`/examples/${ex.id}-thumb.jpg`} alt="" width={28} height={28} className="h-7 w-7 rounded-full object-cover" />
                   {ex.label}
                 </button>
               ))}
@@ -285,7 +290,7 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock, options }: { reci
                       value={list}
                       onChange={(e) => setList(e.target.value)}
                       placeholder="eggs, spinach, feta, lemon"
-                      className="h-12 flex-1 rounded-full border border-cream/20 bg-white/[.06] px-5 text-[16px] text-cream placeholder:text-cream/40 outline-none focus:border-lime"
+                      className="h-12 flex-1 rounded-full border border-cream/20 bg-white/[.06] px-5 text-[16px] text-cream placeholder:text-cream/60 outline-none focus:border-lime"
                       data-testid="list-input"
                     />
                     <button type="submit" disabled={list.split(/[,\n]/).filter((x) => x.trim()).length < 2} className="h-12 cursor-pointer rounded-full bg-tomato px-6 font-semibold text-white disabled:opacity-50">
@@ -300,11 +305,11 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock, options }: { reci
                 Your {last.title} is waiting <ArrowRight className="h-4 w-4" />
               </a>
             )}
-          </motion.div>
+          </m.div>
         )}
 
         {phase.kind === "working" && (
-          <motion.div key="working" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="overflow-hidden rounded-[28px] bg-ink-2 ring-1 ring-white/10" data-testid="working">
+          <m.div key="working" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="overflow-hidden rounded-[28px] bg-ink-2 ring-1 ring-white/10" data-testid="working">
             <div className="relative aspect-[4/3] sm:aspect-[16/9]">
               {phase.preview ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -319,20 +324,20 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock, options }: { reci
                 [
                   [22, 30], [58, 24], [76, 52], [34, 64], [64, 78], [14, 80],
                 ].map(([x, y], i) => (
-                  <motion.span key={i} className="absolute h-3 w-3 rounded-full border-2 border-white bg-lime shadow" style={{ left: `${x}%`, top: `${y}%` }} initial={{ scale: 0 }} animate={{ scale: [0, 1.3, 1] }} transition={{ delay: i * 0.25 }} />
+                  <m.span key={i} className="absolute h-3 w-3 rounded-full border-2 border-white bg-lime shadow" style={{ left: `${x}%`, top: `${y}%` }} initial={{ scale: 0 }} animate={{ scale: [0, 1.3, 1] }} transition={{ delay: i * 0.25 }} />
                 ))}
               <AnimatePresence>
                 {stamp && (
-                  <motion.div className="absolute inset-0 grid place-items-center bg-ink/45" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                    <motion.div
+                  <m.div className="absolute inset-0 grid place-items-center bg-ink/45" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                    <m.div
                       initial={reduce ? false : { scale: 1.6, rotate: -12, opacity: 0 }}
                       animate={{ scale: 1, rotate: -4, opacity: 1 }}
                       transition={{ type: "spring", stiffness: 380, damping: 16 }}
                       className="rounded-2xl border-[3px] border-lime px-6 py-3 text-center text-lime"
                     >
                       <p className="font-serif text-[28px] font-semibold leading-none sm:text-[36px]">Your recipe is ready.</p>
-                    </motion.div>
-                  </motion.div>
+                    </m.div>
+                  </m.div>
                 )}
               </AnimatePresence>
             </div>
@@ -356,11 +361,11 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock, options }: { reci
                 </ul>
               </div>
             </div>
-          </motion.div>
+          </m.div>
         )}
 
         {phase.kind === "done" && (
-          <motion.div key={"done" + phase.recipe.id} initial={reduce ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.22, 0.8, 0.24, 1] }}>
+          <m.div key={"done" + phase.recipe.id} initial={reduce ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.22, 0.8, 0.24, 1] }}>
             <RecipeCard recipe={phase.recipe} onUnlock={openUnlock} onUpgrade={openUpgrade} justUnlocked={justUnlocked} />
             {!phase.recipe.access.unlocked && (
               <div className="mt-4 flex flex-col items-center gap-3">
@@ -373,11 +378,11 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock, options }: { reci
                 </button>
               </div>
             )}
-          </motion.div>
+          </m.div>
         )}
 
         {phase.kind === "error" && (
-          <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-[28px] bg-ink-2 p-6 text-center ring-1 ring-white/10" data-testid="scan-error">
+          <m.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-[28px] bg-ink-2 p-6 text-center ring-1 ring-white/10" data-testid="scan-error">
             {phase.preview && (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={phase.preview} alt="" className="mx-auto mb-4 h-28 w-40 rounded-xl object-cover opacity-70" />
@@ -393,11 +398,11 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock, options }: { reci
                 <ImagePlus className="h-5 w-5" /> Use another photo
               </button>
             </div>
-          </motion.div>
+          </m.div>
         )}
 
         {phase.kind === "limit" && (
-          <motion.div key="limit" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-[28px] bg-ink-2 p-6 text-center ring-1 ring-white/10" data-testid="scan-limit">
+          <m.div key="limit" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-[28px] bg-ink-2 p-6 text-center ring-1 ring-white/10" data-testid="scan-limit">
             <p className="font-serif text-[24px] font-semibold text-cream">{phase.message}</p>
             <div className="mt-5 flex flex-wrap justify-center gap-3">
               {phase.reason === "anon_limit" ? (
@@ -409,15 +414,15 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock, options }: { reci
                 <a href={`/r/${last.id}`} className="inline-flex h-12 items-center rounded-full bg-white/10 px-6 font-semibold text-cream">Open my last recipe</a>
               )}
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
         {phase.kind === "done" && !phase.recipe.access.unlocked && featured && (
-          <motion.div initial={{ y: 90 }} animate={{ y: 0 }} transition={{ delay: 0.6, type: "spring", damping: 26 }} className="fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-2 sm:hidden">
+          <m.div initial={{ y: 90 }} animate={{ y: 0 }} transition={{ delay: 0.6, type: "spring", damping: 26 }} className="fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-2 sm:hidden">
             <button type="button" onClick={openUnlock} data-testid="sticky-unlock" className="flex h-14 w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-tomato text-[16px] font-semibold text-white shadow-[0_12px_30px_-8px_rgb(0_0_0/.5)] active:scale-[0.97]">
               <Lock className="h-4.5 w-4.5" /> See my full recipe · {featured.per_day}
             </button>
-          </motion.div>
+          </m.div>
         )}
 
     </div>

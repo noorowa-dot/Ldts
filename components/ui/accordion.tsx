@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +20,7 @@ export function Accordion({ items, dark = false, className }: { items: { q: stri
           </button>
           <AnimatePresence initial={false}>
             {open === i && (
-              <motion.div
+              <m.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
@@ -28,7 +28,7 @@ export function Accordion({ items, dark = false, className }: { items: { q: stri
                 className="overflow-hidden"
               >
                 <p className={cn("pb-5 pr-8 text-[15px] leading-relaxed", dark ? "text-cream/70" : "text-fg-muted")}>{it.a}</p>
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
         </div>

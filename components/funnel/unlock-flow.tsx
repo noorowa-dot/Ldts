@@ -3,8 +3,21 @@ import * as React from "react";
 import { ArrowRight, Check, Sparkles } from "lucide-react";
 import { Sheet } from "@/components/ui/sheet";
 import { LogoMark } from "@/components/ui/logo";
-import { AuthForm } from "./auth-form";
-import { CheckoutBody, PaywallContent, UnlockFilm, usePlans, type CheckoutTarget, type PublicPlan } from "./paywall";
+import dynamic from "next/dynamic";
+import type { CheckoutTarget, PublicPlan } from "./paywall";
+import { usePlans } from "./plans";
+
+// Loaded on first use, so the landing page stays light (Supabase auth, Whop and the film are not needed to see a recipe).
+const AuthForm = dynamic(() => import("./auth-form").then((m) => m.AuthForm), { ssr: false, loading: () => <div className="skeleton h-56 w-full" /> });
+const PaywallContent = dynamic(() => import("./paywall").then((m) => m.PaywallContent), { ssr: false, loading: () => <div className="space-y-3 px-5 pt-16"><div className="skeleton h-8 w-3/4" /><div className="skeleton h-20 w-full" /><div className="skeleton h-20 w-full" /></div> });
+const CheckoutBody = dynamic(() => import("./paywall").then((m) => m.CheckoutBody), { ssr: false });
+const UnlockFilm = dynamic(() => import("./paywall").then((m) => m.UnlockFilm), { ssr: false });
+
+/** Warm the funnel code as soon as a recipe is on screen. */
+export function preloadFunnel() {
+  import("./auth-form");
+  import("./paywall");
+}
 import type { RecipeView } from "@/lib/types";
 import type { UpgradeFeature } from "./recipe-card";
 import { listNice } from "@/lib/utils";

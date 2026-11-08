@@ -1,14 +1,15 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, DM_Sans, DM_Mono } from "next/font/google";
 import "./globals.css";
+import { MotionProvider } from "@/components/motion-provider";
 
 const fraunces = Fraunces({
   variable: "--font-fraunces",
   subsets: ["latin"],
-  axes: ["SOFT", "WONK", "opsz"],
-  display: "swap",
+  weight: ["600"],
+  display: "optional",
 });
-const dmSans = DM_Sans({ variable: "--font-dmsans", subsets: ["latin"], display: "swap" });
+const dmSans = DM_Sans({ variable: "--font-dmsans", subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap" });
 const dmMono = DM_Mono({ variable: "--font-dmmono", subsets: ["latin"], weight: ["400", "500"], display: "swap" });
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
@@ -41,7 +42,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${fraunces.variable} ${dmSans.variable} ${dmMono.variable} h-full`}
       suppressHydrationWarning
     >
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        <MotionProvider>{children}</MotionProvider>
+      </body>
     </html>
   );
 }

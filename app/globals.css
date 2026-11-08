@@ -11,8 +11,8 @@
   --line: #eadfcb;
   --text: #1f1b14;
   --muted: #6f6656;
-  --tomato: #e5482f;
-  --tomato-deep: #c93a23;
+  --tomato: #d2402a;
+  --tomato-deep: #b33522;
   --olive: #6b7a2e;
   --olive-soft: #e9edd6;
   --lime: #c8ff3d;
@@ -107,7 +107,7 @@ h1, h2, h3, .font-serif {
 }
 
 .glow-top {
-  background: radial-gradient(ellipse 50% 60% at 50% 0%, rgb(229 72 47 / 0.32), transparent 70%);
+  background: radial-gradient(ellipse 50% 60% at 50% 0%, rgb(210 64 42 / 0.34), transparent 70%);
 }
 
 /* ---------- Type helpers ---------- */

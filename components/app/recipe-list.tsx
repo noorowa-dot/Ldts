@@ -55,7 +55,7 @@ export function RecipeList({ items: initial, mode }: { items: ListItem[]; mode: 
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={r.photo_url} alt="" className="h-full w-full object-cover" loading="lazy" />
                 ) : (
-                  <ChefHat className="absolute inset-0 m-auto h-7 w-7 text-cream/40" />
+                  <ChefHat className="absolute inset-0 m-auto h-7 w-7 text-cream/60" />
                 )}
               </span>
               <span className="min-w-0">

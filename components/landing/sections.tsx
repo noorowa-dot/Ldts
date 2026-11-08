@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import * as React from "react";
-import { motion, useReducedMotion, useScroll, useMotionValueEvent, AnimatePresence } from "framer-motion";
+import { m, useReducedMotion, useScroll, useMotionValueEvent, AnimatePresence } from "framer-motion";
 import { ArrowRight, Camera, Check, ChefHat, Clock, Heart, Leaf, ShoppingBasket, Sparkles, Trash2, X, Lightbulb, ListChecks } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { Reveal, Stagger } from "@/components/ui/reveal";
@@ -70,11 +70,11 @@ export function StickyMobileCta() {
   return (
     <AnimatePresence>
       {show && (
-        <motion.div initial={{ y: 90 }} animate={{ y: 0 }} exit={{ y: 90 }} transition={{ type: "spring", damping: 26, stiffness: 300 }} className="fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-2 md:hidden">
+        <m.div initial={{ y: 90 }} animate={{ y: 0 }} exit={{ y: 90 }} transition={{ type: "spring", damping: 26, stiffness: 300 }} className="fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-2 md:hidden">
           <a href="#try" onClick={scrollToTry} className="flex h-14 items-center justify-center gap-2 rounded-full bg-tomato text-[16px] font-semibold text-white shadow-[0_12px_30px_-8px_rgb(0_0_0/.5)] active:scale-[0.97]" data-testid="sticky-cta">
             <Camera className="h-5 w-5" /> Make my recipe
           </a>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );
@@ -141,7 +141,7 @@ function LoopScreen({ step }: { step: 0 | 1 | 2 }) {
     return (
       <div className="relative h-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/examples/leftovers-night.jpg" alt="" className="h-full w-full object-cover" />
+        <img src="/examples/leftovers-night.jpg" alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
         <div className="absolute inset-x-4 h-[3px] rounded-full bg-lime shadow-[0_0_18px_4px_rgb(200_255_61/.6)] transition-all duration-[1400ms] ease-in-out" style={{ top: tick % 2 ? "78%" : "18%" }} />
         <div className="absolute inset-x-0 bottom-6 flex justify-center">
           <span className="grid h-14 w-14 place-items-center rounded-full bg-tomato text-white ring-4 ring-white/70"><Camera className="h-6 w-6" /></span>
@@ -240,7 +240,7 @@ function FeatureLoop({ k }: { k: (typeof FEATURES)[number]["key"] }) {
     return (
       <div className="relative h-full overflow-hidden rounded-2xl">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/examples/half-empty-fridge.jpg" alt="" className="h-full w-full object-cover" />
+        <img src="/examples/half-empty-fridge.jpg" alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
         {[["Eggs", 12, 18], ["Feta", 45, 22], ["Lemon", 70, 26], ["Spinach", 12, 56], ["Tomatoes", 40, 54], ["Chicken", 66, 58]].map(([n, x, y], i) => (
           <span key={n as string} className="absolute transition-all duration-300" style={{ left: `${x}%`, top: `${y}%`, opacity: reduce || i <= tick % 8 ? 1 : 0, transform: `scale(${reduce || i <= tick % 8 ? 1 : 0.6})` }}>
             <Sticker tone={toneCycle[i % 3]} className="text-[11px]">{n}</Sticker>
@@ -348,7 +348,7 @@ export function Compare() {
           </div>
           {rows.map(([k, a, b]) => (
             <div key={k} className="grid grid-cols-[1fr_1fr] border-t border-white/10 text-[15px] sm:grid-cols-[1fr_1.3fr_1.3fr]">
-              <span className="col-span-2 px-4 pt-4 text-[12px] font-semibold uppercase tracking-[0.12em] text-cream/45 sm:col-span-1 sm:px-5 sm:py-4 sm:text-[14px] sm:normal-case sm:tracking-normal sm:text-cream/80">{k}</span>
+              <span className="col-span-2 px-4 pt-4 text-[12px] font-semibold uppercase tracking-[0.12em] text-cream/60 sm:col-span-1 sm:px-5 sm:py-4 sm:text-[14px] sm:normal-case sm:tracking-normal sm:text-cream/80">{k}</span>
               <span className="flex gap-2 px-4 py-3 text-cream/60 sm:px-5 sm:py-4"><X className="mt-0.5 h-4 w-4 shrink-0 text-tomato" />{a}</span>
               <span className="flex gap-2 bg-tomato/10 px-4 py-3 font-medium sm:px-5 sm:py-4"><Check className="mt-0.5 h-4 w-4 shrink-0 text-lime" />{b}</span>
             </div>
@@ -406,7 +406,7 @@ export function FinalCta() {
             <ArrowRight className="arrow-nudge h-5 w-5 transition-transform duration-300 group-hover:translate-x-7" strokeWidth={2.4} />
           </span>
         </a>
-        <FactsLine className="mt-4 text-cream/45" />
+        <FactsLine className="mt-4 text-cream/60" />
       </Reveal>
     </section>
   );
@@ -424,20 +424,20 @@ export function Footer({ minimal = false }: { minimal?: boolean }) {
               <p className="mt-3 max-w-xs text-[14px] text-cream/55">Made for busy people trying to cook with what is at home.</p>
             </div>
             <div className="space-y-2 text-[14px]">
-              <p className="label-mono text-cream/40">Product</p>
+              <p className="label-mono text-cream/60">Product</p>
               <a href="#how" className="block text-cream/75 hover:text-cream">How it works</a>
               <a href="#features" className="block text-cream/75 hover:text-cream">Features</a>
               <a href="#questions" className="block text-cream/75 hover:text-cream">Questions</a>
             </div>
             <div className="space-y-2 text-[14px]">
-              <p className="label-mono text-cream/40">Account</p>
+              <p className="label-mono text-cream/60">Account</p>
               <a href="/login" className="block text-cream/75 hover:text-cream">Log in</a>
               <a href="/terms" className="block text-cream/75 hover:text-cream">Terms</a>
               <a href="/privacy" className="block text-cream/75 hover:text-cream">Privacy</a>
             </div>
           </div>
         )}
-        <div className="flex flex-wrap items-center justify-between gap-3 py-6 text-[13px] text-cream/45">
+        <div className="flex flex-wrap items-center justify-between gap-3 py-6 text-[13px] text-cream/60">
           <span>© {year} Platepal</span>
           <span className="flex gap-4">
             <a href="/terms" className="hover:text-cream">Terms</a>
@@ -446,9 +446,17 @@ export function Footer({ minimal = false }: { minimal?: boolean }) {
           </span>
         </div>
       </div>
-      <div aria-hidden className="pointer-events-none select-none text-center font-serif text-[27vw] font-semibold leading-[0.78] tracking-[-0.06em] text-cream opacity-[0.13] [mask-image:linear-gradient(to_bottom,#000_30%,transparent)]">
-        Platepal
-      </div>
+      <svg aria-hidden viewBox="0 0 1000 230" className="pointer-events-none block w-full select-none">
+        <defs>
+          <linearGradient id="wm" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#fbf6ec" stopOpacity=".13" />
+            <stop offset="1" stopColor="#fbf6ec" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <text x="500" y="215" textAnchor="middle" fill="url(#wm)" style={{ font: "600 270px var(--font-fraunces), Georgia, serif", letterSpacing: "-0.06em" }}>
+          Platepal
+        </text>
+      </svg>
     </footer>
   );
 }
@@ -470,7 +478,7 @@ export function HeroFacts({ count }: { count: number }) {
           <Sparkles className="h-3.5 w-3.5 text-lime" /> {count.toLocaleString("en-US")} recipes made so far
         </p>
       )}
-      <p className="flex items-center gap-1.5 text-[12px] text-cream/45">
+      <p className="flex items-center gap-1.5 text-[12px] text-cream/60">
         <Clock className="h-3.5 w-3.5" /> Your photo stays private. Delete it anytime.
       </p>
     </div>

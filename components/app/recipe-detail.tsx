@@ -2,7 +2,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Check } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import type { RecipeView } from "@/lib/types";
 import { RecipeCard, type UpgradeFeature } from "@/components/funnel/recipe-card";
 import { UnlockProvider, useUnlock, event } from "@/components/funnel/unlock-flow";
@@ -12,11 +12,11 @@ export function Toast({ text }: { text: string | null }) {
   return (
     <AnimatePresence>
       {text && (
-        <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 30, opacity: 0 }} className="fixed inset-x-0 bottom-24 z-50 flex justify-center px-4 md:bottom-8" role="status">
+        <m.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 30, opacity: 0 }} className="fixed inset-x-0 bottom-24 z-50 flex justify-center px-4 md:bottom-8" role="status">
           <span className="flex items-center gap-2 rounded-full bg-ink px-4 py-2.5 text-[14px] font-semibold text-cream shadow-xl">
             <Check className="h-4 w-4 text-lime" /> {text}
           </span>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

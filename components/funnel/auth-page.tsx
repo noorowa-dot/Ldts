@@ -26,8 +26,7 @@ export function AuthPage({ mode, next, notice }: { mode: "signup" | "login"; nex
             <AuthForm
               initialMode={mode}
               next={next}
-              onDone={async () => {
-                const r = await fetch("/api/claim", { method: "POST" }).then((x) => x.json()).catch(() => ({}));
+              onDone={async (r) => {
                 if (next === "/app" && r?.latest && r?.claimed) router.replace(`/r/${r.latest}?unlock=1`);
                 else router.replace(next);
                 router.refresh();

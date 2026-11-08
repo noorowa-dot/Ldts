@@ -21,9 +21,9 @@ export async function renderOg({ kicker, title, items, meta }: { kicker: string;
     (
       <div style={{ width: "100%", height: "100%", display: "flex", background: "#17150F", padding: 56, position: "relative" }}>
         <div style={{ position: "absolute", top: -200, left: 300, width: 600, height: 400, borderRadius: 9999, background: "rgba(229,72,47,0.28)", filter: "blur(80px)", display: "flex" }} />
-        <div style={{ display: "flex", flexDirection: "column", width: "100%", background: "#FFFDF8", borderRadius: 32, padding: "48px 56px", position: "relative", borderTop: "8px solid #E5482F" }}>
+        <div style={{ display: "flex", flexDirection: "column", width: "100%", background: "#FFFDF8", borderRadius: 32, padding: "48px 56px", position: "relative", borderTop: "8px solid #D2402A" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 9999, background: "#E5482F", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 44, height: 44, borderRadius: 9999, background: "#D2402A", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <div style={{ width: 26, height: 26, borderRadius: 9999, border: "3px solid rgba(251,246,236,.6)", display: "flex" }} />
             </div>
             <span style={{ fontFamily: "Fraunces", fontSize: 32, color: "#1F1B14" }}>Platepal</span>

@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { m, useReducedMotion } from "framer-motion";
 import { Check, ChefHat, Clock, Flame, Heart, Lock, Shuffle, ShoppingBasket, Share2, Users, Sparkles, Trash2, Printer } from "lucide-react";
 import type { RecipeView } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -74,7 +74,7 @@ export function PhotoWithStickers({ recipe, className, live = false }: { recipe:
         found.map((f, i) => {
           const side = placed[i]?.side;
           return (
-            <motion.div
+            <m.div
               key={f.name + i}
               className="absolute"
               style={{ left: `${f.x}%`, top: `${f.y}%` }}
@@ -88,7 +88,7 @@ export function PhotoWithStickers({ recipe, className, live = false }: { recipe:
                   {f.name}
                 </Sticker>
               )}
-            </motion.div>
+            </m.div>
           );
         })}
     </div>
@@ -105,7 +105,7 @@ function LockedOverlay({ label, onClick, sub }: { label: string; onClick?: () =>
       <span className="grid h-11 w-11 place-items-center rounded-full bg-ink text-cream shadow-lg transition group-hover:scale-105">
         <Lock className="h-5 w-5" />
       </span>
-      <span className="rounded-full bg-tomato px-4 py-2 text-sm font-semibold text-white shadow-[0_8px_20px_-8px_rgb(229_72_47/.8)] transition group-active:scale-95">
+      <span className="rounded-full bg-tomato px-4 py-2 text-sm font-semibold text-white shadow-[0_8px_20px_-8px_rgb(210_64_42/.8)] transition group-active:scale-95">
         {label}
       </span>
       {sub && <span className="text-xs text-fg-muted">{sub}</span>}
@@ -155,7 +155,7 @@ export function RecipeCard({ recipe, onUnlock, onUpgrade, unlockLabel = "See my 
 
         {/* Ingredients */}
         <Section title="Ingredients">
-          <motion.ul {...blurAnim} className={cn("divide-y divide-border/80", !unlocked && "locked")}>
+          <m.ul {...blurAnim} className={cn("divide-y divide-border/80", !unlocked && "locked")}>
             {recipe.body.ingredients.map((i, idx) => (
               <li key={idx} className="flex items-baseline justify-between gap-4 py-2.5 text-[15px]">
                 <span className="flex items-center gap-2">
@@ -165,13 +165,13 @@ export function RecipeCard({ recipe, onUnlock, onUpgrade, unlockLabel = "See my 
                 <span className="shrink-0 font-mono text-[13px] text-fg-muted">{i.amount}</span>
               </li>
             ))}
-          </motion.ul>
+          </m.ul>
           {!unlocked && <LockedOverlay label={unlockLabel} onClick={onUnlock} />}
         </Section>
 
         {/* Steps */}
         <Section title="Step by step">
-          <motion.ol {...blurAnim} className={cn("space-y-4", !unlocked && "locked")}>
+          <m.ol {...blurAnim} className={cn("space-y-4", !unlocked && "locked")}>
             {recipe.body.steps.map((s, idx) => (
               <li key={idx} className="flex gap-4">
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink font-mono text-sm text-cream">{idx + 1}</span>
@@ -184,7 +184,7 @@ export function RecipeCard({ recipe, onUnlock, onUpgrade, unlockLabel = "See my 
                 </div>
               </li>
             ))}
-          </motion.ol>
+          </m.ol>
           {!unlocked && <LockedOverlay label={unlockLabel} onClick={onUnlock} sub={`${recipe.body.steps.length} easy steps · ${recipe.time_minutes} min`} />}
         </Section>
 

@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { AnimatePresence, motion, useInView, useReducedMotion } from "framer-motion";
+import { AnimatePresence, m, useInView, useReducedMotion } from "framer-motion";
 import { Camera, Check, Clock, Pause, Play, RotateCcw, Trash2, Receipt, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sticker, toneCycle } from "@/components/ui/sticker";
@@ -77,15 +77,15 @@ export function Vsl({ videoSrc }: { videoSrc?: string | null }) {
       <div className="relative aspect-[4/5] sm:aspect-video">
         <div className="dot-grid absolute inset-0 opacity-60" />
         <AnimatePresence mode="wait">
-          <motion.div key={idx} className="absolute inset-0" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }}>
+          <m.div key={idx} className="absolute inset-0" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }}>
             <Scene i={idx} p={reduce ? 1 : local} />
-          </motion.div>
+          </m.div>
         </AnimatePresence>
 
         {/* Big captions */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink via-ink/80 to-transparent px-5 pb-16 pt-16 sm:px-10 sm:pb-20">
           <AnimatePresence mode="wait">
-            <motion.p
+            <m.p
               key={idx}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
@@ -94,7 +94,7 @@ export function Vsl({ videoSrc }: { videoSrc?: string | null }) {
               className="mx-auto max-w-3xl text-center font-serif text-[26px] font-semibold leading-[1.12] tracking-[-0.02em] text-cream sm:text-[40px]"
             >
               {SCENES[idx].caption}
-            </motion.p>
+            </m.p>
           </AnimatePresence>
         </div>
 
@@ -190,9 +190,9 @@ function SceneFridge({ p }: { p: number }) {
     <div className={stage}>
       <div className="relative flex h-full items-center gap-6 py-6">
         <FridgeArt open={Math.min(1, p * 3)} />
-        <motion.div className="absolute -right-2 top-8 flex items-center gap-2 rounded-2xl bg-ink px-3 py-2 font-mono text-[20px] text-cream ring-1 ring-white/15 sm:-right-24 sm:text-[26px]" animate={{ scale: [1, 1.04, 1] }} transition={{ repeat: Infinity, duration: 2 }}>
+        <m.div className="absolute -right-2 top-8 flex items-center gap-2 rounded-2xl bg-ink px-3 py-2 font-mono text-[20px] text-cream ring-1 ring-white/15 sm:-right-24 sm:text-[26px]" animate={{ scale: [1, 1.04, 1] }} transition={{ repeat: Infinity, duration: 2 }}>
           <Clock className="h-5 w-5 text-tomato" /> 6:12 PM
-        </motion.div>
+        </m.div>
       </div>
     </div>
   );
@@ -203,14 +203,14 @@ function SceneTrash({ p }: { p: number }) {
     <div className={stage}>
       <div className="relative flex items-end gap-6 sm:gap-12">
         <div className="relative">
-          <motion.div className="absolute left-1/2 -translate-x-1/2" style={{ top: `${-40 + Math.min(1, p * 2) * 90}px`, opacity: 1 - Math.max(0, p * 2 - 1.4) }}>
+          <m.div className="absolute left-1/2 -translate-x-1/2" style={{ top: `${-40 + Math.min(1, p * 2) * 90}px`, opacity: 1 - Math.max(0, p * 2 - 1.4) }}>
             <svg viewBox="0 0 60 60" className="h-14 w-14"><path d="M10 50 l6 -38 q14 -6 28 0 l6 38z" fill="#3f8a36" /></svg>
-          </motion.div>
+          </m.div>
           <div className="grid h-36 w-28 place-items-center rounded-b-3xl rounded-t-lg bg-ink-3 ring-1 ring-white/10 sm:h-44 sm:w-32">
-            <Trash2 className="h-12 w-12 text-cream/40" />
+            <Trash2 className="h-12 w-12 text-cream/60" />
           </div>
         </div>
-        <motion.div className="w-44 rounded-2xl bg-paper p-4 text-ink shadow-xl sm:w-52" initial={{ y: 40, rotate: 6, opacity: 0 }} animate={{ y: 0, rotate: -3, opacity: p > 0.35 ? 1 : 0 }} transition={{ type: "spring", damping: 16 }}>
+        <m.div className="w-44 rounded-2xl bg-paper p-4 text-ink shadow-xl sm:w-52" initial={{ y: 40, rotate: 6, opacity: 0 }} animate={{ y: 0, rotate: -3, opacity: p > 0.35 ? 1 : 0 }} transition={{ type: "spring", damping: 16 }}>
           <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-muted"><Receipt className="h-4 w-4" /> Delivery</p>
           <div className="mt-3 space-y-1.5 font-mono text-[13px]">
             <p className="flex justify-between"><span>Pad thai</span><span>$18.50</span></p>
@@ -218,7 +218,7 @@ function SceneTrash({ p }: { p: number }) {
             <p className="flex justify-between border-t border-dashed border-line pt-1.5 font-semibold"><span>Total</span><span>$29.70</span></p>
           </div>
           <p className="mt-2 text-[11px] text-muted">Example order</p>
-        </motion.div>
+        </m.div>
       </div>
     </div>
   );
@@ -227,17 +227,17 @@ function SceneTrash({ p }: { p: number }) {
 function SceneClick({ p }: { p: number }) {
   return (
     <div className={stage}>
-      <motion.div className="relative" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", damping: 14 }}>
-        <div className="grid h-28 w-28 place-items-center rounded-[32px] bg-tomato shadow-[0_20px_60px_-10px_rgb(229_72_47/.8)] sm:h-36 sm:w-36">
+      <m.div className="relative" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", damping: 14 }}>
+        <div className="grid h-28 w-28 place-items-center rounded-[32px] bg-tomato shadow-[0_20px_60px_-10px_rgb(210_64_42/.8)] sm:h-36 sm:w-36">
           <svg viewBox="0 0 32 32" className="h-16 w-16 sm:h-20 sm:w-20"><circle cx="16" cy="17" r="12" fill="none" stroke="#FBF6EC" strokeWidth="2.4" /><circle cx="16" cy="17" r="6.5" fill="none" stroke="#FBF6EC" strokeOpacity=".6" strokeWidth="1.6" /><path d="M16 4.5c1.6-2.6 4.7-3.4 7.4-2.4-.6 2.9-3.2 4.9-6.2 4.7" fill="#C8FF3D" /></svg>
         </div>
         {[0, 1, 2].map((k) => (
-          <motion.span key={k} className="absolute inset-0 rounded-[32px] border-2 border-lime" animate={{ scale: [1, 1.8], opacity: [0.6, 0] }} transition={{ repeat: Infinity, duration: 2.2, delay: k * 0.7 }} />
+          <m.span key={k} className="absolute inset-0 rounded-[32px] border-2 border-lime" animate={{ scale: [1, 1.8], opacity: [0.6, 0] }} transition={{ repeat: Infinity, duration: 2.2, delay: k * 0.7 }} />
         ))}
-        <motion.p className="mt-6 text-center font-serif text-3xl font-semibold text-cream sm:text-4xl" style={{ opacity: Math.min(1, p * 3) }}>
+        <m.p className="mt-6 text-center font-serif text-3xl font-semibold text-cream sm:text-4xl" style={{ opacity: Math.min(1, p * 3) }}>
           Platepal
-        </motion.p>
-      </motion.div>
+        </m.p>
+      </m.div>
     </div>
   );
 }
@@ -259,13 +259,13 @@ function SceneScan({ p }: { p: number }) {
     <div className={stage}>
       <MiniPhone>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/examples/half-empty-fridge.jpg" alt="" className="h-full w-full object-cover" />
+        <img src="/examples/half-empty-fridge.jpg" alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
         <div className="absolute inset-0 bg-ink/25" />
         <div className="absolute inset-x-3 h-[3px] rounded-full bg-lime shadow-[0_0_18px_4px_rgb(200_255_61/.6)]" style={{ top: `${10 + ((p * 2) % 1) * 80}%` }} />
         {ITEMS.slice(0, shown).map((it, k) => (
-          <motion.div key={it} className="absolute" style={{ left: `${[10, 46, 22, 40, 62, 50][k]}%`, top: `${[22, 22, 50, 56, 30, 64][k]}%` }} initial={{ scale: 0 }} animate={{ scale: 1 }}>
+          <m.div key={it} className="absolute" style={{ left: `${[10, 46, 22, 40, 62, 50][k]}%`, top: `${[22, 22, 50, 56, 30, 64][k]}%` }} initial={{ scale: 0 }} animate={{ scale: 1 }}>
             <Sticker tone={toneCycle[k % 3]} className="text-[10px]">{it}</Sticker>
-          </motion.div>
+          </m.div>
         ))}
         <div className="absolute inset-x-0 bottom-4 flex justify-center">
           <span className="grid h-12 w-12 place-items-center rounded-full bg-tomato text-white ring-4 ring-white/60"><Camera className="h-5 w-5" /></span>
@@ -285,10 +285,10 @@ function SceneRecipe({ p }: { p: number }) {
         <p className="mt-1 flex items-center gap-3 text-[13px] text-muted"><span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />20 min</span> Serves 2 · Easy</p>
         <ol className="mt-3 space-y-2">
           {lines.map((l, k) => (
-            <motion.li key={l} className="flex items-center gap-2.5 text-[14px]" style={{ opacity: p > 0.15 + k * 0.15 ? 1 : 0.12 }}>
+            <m.li key={l} className="flex items-center gap-2.5 text-[14px]" style={{ opacity: p > 0.15 + k * 0.15 ? 1 : 0.12 }}>
               <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-ink font-mono text-[11px] text-cream">{k + 1}</span>
               {l}
-            </motion.li>
+            </m.li>
           ))}
         </ol>
         <p className="mt-3 text-[11px] text-muted">Example recipe</p>
@@ -307,10 +307,10 @@ function SceneChange({ p }: { p: number }) {
     <div className={stage}>
       <div className="grid w-[88%] max-w-2xl grid-cols-3 gap-2 sm:gap-4">
         {facts.map((f, k) => (
-          <motion.div key={f.small} className="rounded-2xl bg-white/[.06] p-3 text-center ring-1 ring-white/10 sm:p-6" style={{ opacity: p > k * 0.2 ? 1 : 0, transform: `translateY(${p > k * 0.2 ? 0 : 12}px)`, transition: "all .5s cubic-bezier(.22,.8,.24,1)" }}>
+          <m.div key={f.small} className="rounded-2xl bg-white/[.06] p-3 text-center ring-1 ring-white/10 sm:p-6" style={{ opacity: p > k * 0.2 ? 1 : 0, transform: `translateY(${p > k * 0.2 ? 0 : 12}px)`, transition: "all .5s cubic-bezier(.22,.8,.24,1)" }}>
             <p className="font-serif text-[34px] font-semibold text-lime sm:text-[56px]">{f.big}</p>
             <p className="mt-1 text-[12px] text-cream/70 sm:text-[15px]">{f.small}</p>
-          </motion.div>
+          </m.div>
         ))}
       </div>
     </div>
@@ -326,7 +326,7 @@ function SceneCta({ p }: { p: number }) {
         </div>
         <a
           href="#try"
-          className={cn("pointer-events-auto mx-auto -mt-4 flex w-fit items-center gap-2 rounded-full bg-tomato px-6 py-3.5 font-semibold text-white shadow-[0_12px_30px_-8px_rgb(229_72_47/.9)] transition", p > 0.25 ? "opacity-100" : "opacity-0")}
+          className={cn("pointer-events-auto mx-auto -mt-4 flex w-fit items-center gap-2 rounded-full bg-tomato px-6 py-3.5 font-semibold text-white shadow-[0_12px_30px_-8px_rgb(210_64_42/.9)] transition", p > 0.25 ? "opacity-100" : "opacity-0")}
         >
           <Sparkles className="h-4.5 w-4.5" /> Make my recipe
         </a>

@@ -70,8 +70,19 @@ export async function getApp(): Promise<KwopApp> {
 const planCache = new Map<string, { at: number; v: PlanState }>();
 const lastKnown = new Map<string, PlanState>();
 
+/** Local testing only: `next dev` + local Supabase + DEV_PLAN_OVERRIDE=<kwop plan id>. Never active in production. */
+function devOverride(): PlanState | null {
+  const id = Number(process.env.DEV_PLAN_OVERRIDE);
+  if (process.env.NODE_ENV !== "development" || !id) return null;
+  if (!/^http:\/\/(127\.0\.0\.1|localhost)/.test(process.env.NEXT_PUBLIC_SUPABASE_URL || "")) return null;
+  const names: Record<number, string> = { 1552: "Platepal Starter", 1553: "Platepal Pro", 1554: "Platepal Chef" };
+  return { paid: true, plan: { id, name: names[id] ?? "Platepal Pro" }, status: "active", until: new Date(Date.now() + 20 * 86400_000).toISOString() };
+}
+
 export async function getPlan(email: string | null | undefined, opts: { fresh?: boolean } = {}): Promise<PlanState> {
   if (!email) return NO_PLAN;
+  const dev = devOverride();
+  if (dev) return dev;
   const key = email.toLowerCase();
   const hit = planCache.get(key);
   if (!opts.fresh && hit && Date.now() - hit.at < 60_000) return hit.v;

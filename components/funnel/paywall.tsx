@@ -1,45 +1,15 @@
 "use client";
 import * as React from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, m, useReducedMotion } from "framer-motion";
 import { Check, ChevronDown, CreditCard, Loader2, ShieldCheck, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type PublicPlan = {
-  id: number;
-  name: string;
-  price_cents: number;
-  per_day: string;
-  yearly: { price_cents: number; per_day: string } | null;
-  tier: "starter" | "pro" | "chef";
-  tag: string;
-  recipes: number;
-  unlock: string[];
-  featured: boolean;
-};
+import { usePlans } from "./plans";
+export { usePlans };
+import type { PublicPlan } from "./plans";
+export type { PublicPlan };
 
-let plansPromise: Promise<PublicPlan[]> | null = null;
-export function fetchPlans() {
-  plansPromise ??= fetch("/api/plans")
-    .then((r) => r.json())
-    .then((d) => (d.plans as PublicPlan[]) ?? [])
-    .catch(() => {
-      plansPromise = null;
-      return [];
-    });
-  return plansPromise;
-}
 
-export function usePlans() {
-  const [plans, setPlans] = React.useState<PublicPlan[] | null>(null);
-  React.useEffect(() => {
-    let alive = true;
-    fetchPlans().then((p) => alive && setPlans(p));
-    return () => {
-      alive = false;
-    };
-  }, []);
-  return plans;
-}
 
 export const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 const perDay = (p: PublicPlan, period: "month" | "year") => (period === "year" && p.yearly ? p.yearly.per_day : p.per_day);
@@ -100,7 +70,7 @@ export function PaywallContent({ plans, title, personal, onContinue, busy, notic
             data-testid={`${testPrefix}-${p.tier}`}
             className={cn(
               "relative flex w-full cursor-pointer items-center gap-3 rounded-[18px] border-2 bg-surface px-4 py-4 text-left transition active:scale-[0.985]",
-              active ? "border-tomato shadow-[0_10px_30px_-14px_rgb(229_72_47/.6)]" : "border-border hover:border-fg/20"
+              active ? "border-tomato shadow-[0_10px_30px_-14px_rgb(210_64_42/.6)]" : "border-border hover:border-fg/20"
             )}
           >
             {p.featured && (
@@ -182,7 +152,7 @@ export function PaywallContent({ plans, title, personal, onContinue, busy, notic
           disabled={busy || !sel}
           onClick={() => sel && onContinue(sel, period)}
           data-testid="paywall-continue"
-          className="flex h-15 w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-tomato text-[17px] font-semibold text-white shadow-[0_10px_30px_-10px_rgb(229_72_47/.8)] transition hover:bg-tomato-deep active:scale-[0.97] disabled:opacity-60"
+          className="flex h-15 w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-tomato text-[17px] font-semibold text-white shadow-[0_10px_30px_-10px_rgb(210_64_42/.8)] transition hover:bg-tomato-deep active:scale-[0.97] disabled:opacity-60"
         >
           {busy && <Loader2 className="h-5 w-5 animate-spin" />}
           {cta}
@@ -224,9 +194,9 @@ export function PaywallContent({ plans, title, personal, onContinue, busy, notic
             </button>
             <AnimatePresence initial={false}>
               {faqOpen === i && (
-                <motion.p initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden pb-4 text-[14px] leading-relaxed text-fg-muted">
+                <m.p initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden pb-4 text-[14px] leading-relaxed text-fg-muted">
                   {f.a}
-                </motion.p>
+                </m.p>
               )}
             </AnimatePresence>
           </div>
@@ -255,7 +225,7 @@ export function PaywallContent({ plans, title, personal, onContinue, busy, notic
       {sticky && (
         <AnimatePresence>
           {!ctaVisible && sel && (
-            <motion.div
+            <m.div
               initial={{ y: 80, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 80, opacity: 0 }}
@@ -269,7 +239,7 @@ export function PaywallContent({ plans, title, personal, onContinue, busy, notic
               >
                 {cta} · {perDay(sel, period)}
               </button>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       )}
@@ -417,7 +387,7 @@ export function UnlockFilm({ open, planName, lines, onDone }: { open: boolean; p
   return (
     <AnimatePresence>
       {open && (
-        <motion.div className="fixed inset-0 z-[90] grid place-items-center overflow-hidden bg-ink text-cream" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} data-testid="unlock-film">
+        <m.div className="fixed inset-0 z-[90] grid place-items-center overflow-hidden bg-ink text-cream" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} data-testid="unlock-film">
           <div className="dot-grid absolute inset-0" />
           <div className="glow-top absolute inset-0" />
           <button onClick={onDone} aria-label="Skip" className="absolute left-4 top-4 z-10 grid h-10 w-10 cursor-pointer place-items-center rounded-full bg-white/10 text-cream hover:bg-white/20">
@@ -425,36 +395,36 @@ export function UnlockFilm({ open, planName, lines, onDone }: { open: boolean; p
           </button>
           <AnimatePresence mode="wait">
             {scene === 0 && (
-              <motion.div key="s0" className="relative px-6 text-center" initial={reduce ? false : { opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, y: -20 }} transition={{ type: "spring", stiffness: 260, damping: 20 }}>
-                <motion.div className="mx-auto mb-6 grid h-20 w-20 place-items-center rounded-full bg-lime text-ink" initial={reduce ? false : { scale: 0, rotate: -40 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 300, damping: 14, delay: 0.1 }}>
+              <m.div key="s0" className="relative px-6 text-center" initial={reduce ? false : { opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, y: -20 }} transition={{ type: "spring", stiffness: 260, damping: 20 }}>
+                <m.div className="mx-auto mb-6 grid h-20 w-20 place-items-center rounded-full bg-lime text-ink" initial={reduce ? false : { scale: 0, rotate: -40 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 300, damping: 14, delay: 0.1 }}>
                   <Check className="h-10 w-10" strokeWidth={3} />
-                </motion.div>
+                </m.div>
                 <p className="label-mono text-cream/60">[ Payment confirmed ]</p>
                 <p className="mt-3 font-serif text-[44px] font-semibold leading-none tracking-[-0.04em] sm:text-[64px]">You&apos;re on {planName}</p>
-              </motion.div>
+              </m.div>
             )}
             {scene === 1 && (
-              <motion.div key="s1" className="relative w-full max-w-md px-6" initial={reduce ? false : { opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+              <m.div key="s1" className="relative w-full max-w-md px-6" initial={reduce ? false : { opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
                 <p className="text-center label-mono text-cream/60">[ Now unlocked ]</p>
                 <div className="mt-5 space-y-3">
                   {icons.map((l, i) => (
-                    <motion.div key={l} className="flex items-center gap-3 rounded-2xl bg-white/[.07] px-4 py-3.5 text-[16px] font-medium" initial={reduce ? false : { opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 * i }}>
+                    <m.div key={l} className="flex items-center gap-3 rounded-2xl bg-white/[.07] px-4 py-3.5 text-[16px] font-medium" initial={reduce ? false : { opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 * i }}>
                       <span className="grid h-8 w-8 place-items-center rounded-full bg-lime text-ink">
                         <Check className="h-4 w-4" strokeWidth={3} />
                       </span>
                       {l}
-                    </motion.div>
+                    </m.div>
                   ))}
                 </div>
-              </motion.div>
+              </m.div>
             )}
             {scene === 2 && (
-              <motion.div key="s2" className="relative text-center" initial={reduce ? false : { opacity: 0, scale: 1.1 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
+              <m.div key="s2" className="relative text-center" initial={reduce ? false : { opacity: 0, scale: 1.1 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
                 <p className="font-serif text-[64px] font-semibold tracking-[-0.04em] sm:text-[88px]">Let&apos;s go.</p>
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

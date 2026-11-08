@@ -43,7 +43,7 @@ export default async function Home() {
       {/* VSL */}
       <section className="relative px-4 pb-16 text-cream sm:pb-28" aria-label="Watch how Platepal works">
         <div className="mx-auto max-w-[1000px]">
-          <p className="mb-4 text-center label-mono text-cream/45">[ 60 seconds: from fridge to dinner ]</p>
+          <p className="mb-4 text-center label-mono text-cream/60">[ 60 seconds: from fridge to dinner ]</p>
           <Vsl videoSrc={hasVideo ? "/vsl.mp4" : null} />
         </div>
       </section>
