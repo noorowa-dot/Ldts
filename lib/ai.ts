@@ -12,7 +12,8 @@ const MODELS = (process.env.GEMINI_MODEL || "gemini-3.8-flash,gemini-2.5-flash")
 let client: GoogleGenAI | null = null;
 function ai() {
   if (!process.env.GEMINI_API_KEY) throw new AiError("not_configured", "The AI chef is not configured yet.");
-  client ??= new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  // One attempt per model, capped: the SDK's default retries (up to 5, with long backoff) would outlast the function.
+  client ??= new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY, httpOptions: { timeout: 22_000, retryOptions: { attempts: 1 } } });
   return client;
 }
 
@@ -100,6 +101,7 @@ function instructions(o: CookOptions) {
 async function run(parts: object[], o: CookOptions): Promise<Generated> {
   let lastErr: unknown;
   for (const model of MODELS) {
+    const t0 = Date.now();
     try {
       const res = await ai().models.generateContent({
         model,
@@ -112,13 +114,14 @@ async function run(parts: object[], o: CookOptions): Promise<Generated> {
           thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
         },
       });
+      console.log(`[ai] ${model} answered in ${Date.now() - t0} ms`);
       const data = JSON.parse(res.text ?? "{}");
       if (data.no_food || !data.found?.length) throw new AiError("no_food", "We couldn't spot any food in that photo.");
       return sanitize(data);
     } catch (e) {
       if (e instanceof AiError) throw e;
       lastErr = e;
-      console.error(`[ai] ${model} failed:`, (e as Error)?.message?.slice(0, 300));
+      console.error(`[ai] ${model} failed after ${Date.now() - t0} ms:`, (e as Error)?.message?.slice(0, 400));
     }
   }
   throw new AiError("failed", (lastErr as Error)?.message || "The AI chef could not answer.");

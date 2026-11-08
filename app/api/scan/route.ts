@@ -90,11 +90,7 @@ export async function POST(req: Request) {
   }
 }
 
+/** One server attempt (lib/ai.ts already falls back to a second model); the page retries once on failure. */
 async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
-  try {
-    return await fn();
-  } catch (e) {
-    if (e instanceof AiError && e.code !== "failed") throw e;
-    return await fn();
-  }
+  return fn();
 }
