@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 import { Sticker, toneCycle } from "@/components/ui/sticker";
 import { CookSteps } from "./cook-steps";
 import { HeatPicker } from "./heat-picker";
+import { ChefTips } from "./chef-tips";
+import { PantryCheck } from "./pantry-check";
 import { HEATS, type Heat } from "@/lib/types";
 
 export type UpgradeFeature = "shopping" | "macros" | "remix" | "saved" | "quota" | "diet" | "plan" | "shop" | "prices";
@@ -30,6 +32,8 @@ type Props = {
   /** Same dish, new heat level (unlocked recipes). */
   onHeat?: (h: Heat) => void;
   heatBusy?: Heat | null;
+  /** The recipe changed on the server (e.g. older recipes get their full chef's tips written). */
+  onRecipe?: (r: RecipeView) => void;
 };
 
 type Placed = { i: number; side: "left" | "right" | null };
@@ -111,7 +115,8 @@ export function PhotoWithStickers({ recipe, className, live = false }: { recipe:
 }
 
 /** The detected ingredients, editable: remove what the photo got wrong, add what it missed, remake the recipe. */
-function IngredientEditor({ names, onSubmit }: { names: string[]; onSubmit: (items: string[]) => void }) {
+function IngredientEditor({ found, onSubmit }: { found: RecipeView["found"]; onSubmit: (items: string[]) => void }) {
+  const names = found.map((f) => f.name);
   const [editing, setEditing] = React.useState(false);
   const [items, setItems] = React.useState(names);
   const [draft, setDraft] = React.useState("");
@@ -125,12 +130,17 @@ function IngredientEditor({ names, onSubmit }: { names: string[]; onSubmit: (ite
     return (
       <div className="mt-2.5" data-testid="found-list">
         <div className="flex flex-wrap gap-1.5">
-          {names.map((n, i) => (
-            <Sticker key={n + i} tone={toneCycle[i % 3]} className="text-[12px]">
-              {n}
+          {found.map((f, i) => (
+            <Sticker key={f.name + i} tone={toneCycle[i % 3]} className={cn("text-[12px]", f.sure === false && "border border-dashed border-current/60 bg-transparent")}>
+              {f.name}
             </Sticker>
           ))}
         </div>
+        {found.some((f) => f.sure === false) && (
+          <p className="mt-2 text-[12px] text-fg-muted" data-testid="guess-note">
+            Dashed = our best guess (hard to see in the photo). Wrong? Fix it below.
+          </p>
+        )}
         <button type="button" onClick={() => setEditing(true)} className="mt-2.5 inline-flex cursor-pointer items-center gap-1.5 text-[13px] font-semibold text-fg-muted underline-offset-4 hover:text-fg hover:underline print:hidden" data-testid="edit-ingredients">
           <Pencil className="h-3.5 w-3.5" /> Something wrong? Fix the ingredients
         </button>
@@ -199,7 +209,7 @@ function LockedOverlay({ label, onClick, sub }: { label: string; onClick?: () =>
   );
 }
 
-export function RecipeCard({ recipe, onUnlock, onUpgrade, unlockLabel = "See my full recipe", actions, justUnlocked, className, onEditIngredients, onHeat, heatBusy }: Props) {
+export function RecipeCard({ recipe, onUnlock, onUpgrade, unlockLabel = "See my full recipe", actions, justUnlocked, className, onEditIngredients, onHeat, heatBusy, onRecipe }: Props) {
   const reduce = useReducedMotion();
   const { unlocked } = recipe.access;
   const usesCount = recipe.uses.length || recipe.body.ingredients.filter((i) => i.from_fridge).length;
@@ -216,11 +226,11 @@ export function RecipeCard({ recipe, onUnlock, onUpgrade, unlockLabel = "See my 
           </span>
         </div>
         {onEditIngredients ? (
-          <IngredientEditor names={recipe.found.map((f) => f.name)} onSubmit={onEditIngredients} />
+          <IngredientEditor found={recipe.found} onSubmit={onEditIngredients} />
         ) : (
           <div className="mt-2.5 flex flex-wrap gap-1.5" data-testid="found-list">
             {recipe.found.map((f, i) => (
-              <Sticker key={f.name + i} tone={toneCycle[i % 3]} className="text-[12px]">
+              <Sticker key={f.name + i} tone={toneCycle[i % 3]} className={cn("text-[12px]", f.sure === false && "border border-dashed border-current/60 bg-transparent")}>
                 {f.name}
               </Sticker>
             ))}
@@ -260,6 +270,10 @@ export function RecipeCard({ recipe, onUnlock, onUpgrade, unlockLabel = "See my 
 
         {/* Ingredients */}
         <Section title="Ingredients">
+          <p className="-mt-1 mb-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-fg-muted">
+            <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-olive" /> From your fridge</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-butter" /> From your cupboard</span>
+          </p>
           <m.ul {...blurAnim} className={cn("divide-y divide-border/80", !unlocked && "locked")}>
             {recipe.body.ingredients.map((i, idx) => (
               <li key={idx} className="flex items-baseline justify-between gap-4 py-2.5 text-[15px]">
@@ -273,6 +287,8 @@ export function RecipeCard({ recipe, onUnlock, onUpgrade, unlockLabel = "See my 
           </m.ul>
           {!unlocked && <LockedOverlay label={unlockLabel} onClick={onUnlock} />}
         </Section>
+
+        {unlocked && <PantryCheck recipe={recipe} />}
 
         {/* Steps */}
         <Section title="Step by step">
@@ -323,36 +339,33 @@ export function RecipeCard({ recipe, onUnlock, onUpgrade, unlockLabel = "See my 
           </p>
         )}
 
-        {/* Chef's tip + macros */}
-        <Section title="Chef's tips & macros" icon={<ChefHat className="h-4 w-4" />}>
+        {/* Chef's tips: their own section, 4-5 cards */}
+        <Section title="Chef's tips" icon={<ChefHat className="h-4 w-4" />} sub="Pro moves for this exact dish">
           <div className={cn(!recipe.access.macros && "locked")}>
-            <ul className="space-y-2" data-testid="chef-tips">
-              {(recipe.body.tips?.length ? recipe.body.tips : [{ title: "Chef's tip", text: recipe.body.tip || "Taste as you go and season at the end." }]).map((t, i) => (
-                <li key={i} className="flex gap-3 rounded-xl bg-butter-soft px-4 py-3 text-[#5b430a]">
-                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#7a5a0a] font-mono text-[11px] text-butter-soft">{i + 1}</span>
-                  <span>
-                    <span className="block text-[14px] font-semibold">{t.title}</span>
-                    <span className="block text-[14px] leading-relaxed">{t.text}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-3 grid grid-cols-4 gap-2 text-center">
-              {[
-                ["Calories", recipe.body.macros.calories, ""],
-                ["Protein", recipe.body.macros.protein_g, "g"],
-                ["Carbs", recipe.body.macros.carbs_g, "g"],
-                ["Fat", recipe.body.macros.fat_g, "g"],
-              ].map(([l, v, u]) => (
-                <div key={l as string} className="rounded-xl border border-border bg-surface px-2 py-3">
-                  <div className="font-mono text-[17px] font-medium tabular-nums">
-                    {v}
-                    {u}
-                  </div>
-                  <div className="text-[11px] text-fg-muted">{l}</div>
+            <ChefTips recipe={recipe} onRecipe={onRecipe} />
+          </div>
+          {!recipe.access.macros && (
+            <LockedOverlay label={unlocked ? "Unlock with Chef" : unlockLabel} onClick={() => (unlocked ? onUpgrade?.("macros") : onUnlock?.())} sub={`${Math.max(recipe.body.tips?.length ?? 0, 4)} chef's tips for this dish`} />
+          )}
+        </Section>
+
+        {/* Macros */}
+        <Section title="Macros per serving" icon={<Sparkles className="h-4 w-4" />}>
+          <div className={cn("grid grid-cols-4 gap-2 text-center", !recipe.access.macros && "locked")} data-testid="macros">
+            {[
+              ["Calories", recipe.body.macros.calories, ""],
+              ["Protein", recipe.body.macros.protein_g, "g"],
+              ["Carbs", recipe.body.macros.carbs_g, "g"],
+              ["Fat", recipe.body.macros.fat_g, "g"],
+            ].map(([l, v, u]) => (
+              <div key={l as string} className="rounded-xl border border-border bg-surface px-2 py-3">
+                <div className="font-mono text-[17px] font-medium tabular-nums">
+                  {v}
+                  {u}
                 </div>
-              ))}
-            </div>
+                <div className="text-[11px] text-fg-muted">{l}</div>
+              </div>
+            ))}
           </div>
           {!recipe.access.macros && (
             <LockedOverlay label={unlocked ? "Unlock with Chef" : unlockLabel} onClick={() => (unlocked ? onUpgrade?.("macros") : onUnlock?.())} />
@@ -400,13 +413,14 @@ function Meta({ children, icon, className }: { children: React.ReactNode; icon?:
   );
 }
 
-function Section({ title, children, icon }: { title: string; children: React.ReactNode; icon?: React.ReactNode }) {
+function Section({ title, children, icon, sub }: { title: string; children: React.ReactNode; icon?: React.ReactNode; sub?: string }) {
   return (
     <section className="relative mt-7">
-      <h3 className="mb-3 flex items-center gap-2 font-sans text-[13px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
+      <h3 className={cn("flex items-center gap-2 font-sans text-[13px] font-semibold uppercase tracking-[0.14em] text-fg-muted", sub ? "mb-0.5" : "mb-3")}>
         {icon}
         {title}
       </h3>
+      {sub && <p className="mb-3 text-[14px] text-fg-muted">{sub}</p>}
       <div className="relative">{children}</div>
     </section>
   );

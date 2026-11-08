@@ -17,7 +17,22 @@ export const HEATS: { id: Heat; label: string; flames: number; hint: string }[] 
   { id: "extra", label: "Extra hot", flames: 4, hint: "Bring the fire." },
 ];
 
-export type FoundItem = { name: string; x: number; y: number };
+/** `sure: false` = the AI's best guess (partly hidden, no readable label): shown dashed so the person can fix it. */
+export type FoundItem = { name: string; x: number; y: number; sure?: boolean };
+
+export type TipKind = "technique" | "swap" | "flavor" | "make-ahead" | "serving" | "heat";
+export const TIP_KINDS: Record<TipKind, string> = {
+  technique: "Technique",
+  swap: "Swap",
+  flavor: "Flavor boost",
+  "make-ahead": "Make ahead",
+  serving: "To serve",
+  heat: "Heat",
+};
+export type ChefTip = { title: string; text: string; kind?: TipKind };
+
+/** What the person told us about their cupboard (spices, sauces, baking basics). */
+export type PantryStatus = "have" | "out";
 
 export type RecipeBody = {
   ingredients: { item: string; amount: string; from_fridge: boolean }[];
@@ -26,7 +41,7 @@ export type RecipeBody = {
   /** Kept for older recipes: the first tip. */
   tip: string;
   /** 3-5 substantial chef's tips (technique, swap, flavor boost, make-ahead, serving). */
-  tips?: { title: string; text: string }[];
+  tips?: ChefTip[];
   macros: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
 };
 

@@ -233,8 +233,8 @@ export function HowItWorks() {
 
 /* ---------------- Features in action ---------------- */
 const FEATURES = [
-  { key: "scan", icon: Camera, title: "Snap & Scan", text: "Upload a photo of your open fridge or a pantry shelf. Platepal names what it sees." },
-  { key: "chef", icon: ChefHat, title: "AI Chef Engine", text: "A recipe built strictly from what you have. Salt, pepper and oil are the only extras." },
+  { key: "scan", icon: Camera, title: "Snap & Scan", text: "Snap your open fridge, even a messy one. Platepal sweeps every shelf, door and drawer, reads the labels, and learns from every fix." },
+  { key: "chef", icon: ChefHat, title: "AI Chef Engine", text: "A recipe built from what you have, a quick spice-cabinet check for the rest, and 4-5 chef's tips for the dish." },
   { key: "diet", icon: Leaf, title: "Dietary filters", text: "Vegan, keto, gluten-free, dairy-free, vegetarian or high-protein. Your call." },
   { key: "shop", icon: ShoppingBasket, title: "Shopping Saver", text: "Missing something? A tiny list, only if it's truly needed. Usually: nothing." },
   { key: "save", icon: Heart, title: "Save favorites", text: "Bookmark the dishes you loved and cook them again next week." },
@@ -430,8 +430,8 @@ export function Compare() {
 
 /* ---------------- Questions ---------------- */
 export const FAQS = [
-  { q: "Does it really work with a messy fridge?", a: "Yes. Platepal reads normal photos: a crowded fridge, one pantry shelf, a few things on the counter. If the light is too dark, it tells you so you can retake it." },
-  { q: "What if I'm missing an ingredient?", a: "Platepal builds the recipe from what it sees, plus salt, pepper and oil. If one item is truly needed, Shopping Saver lists it, and only that." },
+  { q: "Does it really work with a messy fridge?", a: "Yes. Platepal sweeps every shelf, the door and the drawers, reads labels, and marks anything it isn't sure about so you can fix it in one tap. Every fix teaches it, so it keeps getting better. If the light is too dark, it tells you so you can retake it." },
+  { q: "What if I'm missing an ingredient?", a: "Platepal builds the recipe from what it sees. Spices and sauces a photo can't show come in a quick spice-cabinet check: tap Got it or I'm out, and you get a swap idea or a one-tap add to your shopping list. It remembers your answers for next time." },
   { q: "Can it cook vegan, keto or gluten-free?", a: "Yes. Pick a dietary filter (vegan, vegetarian, keto, gluten-free, dairy-free or high-protein) and every recipe follows it." },
   { q: "Where do my photos go?", a: "Your photos are stored privately in our database (Supabase, US), visible only to you. You can delete any photo, or your whole account, in 2 taps." },
   { q: "How much does it cost?", a: "You try it free first. The plans show up once your first recipe is ready." },

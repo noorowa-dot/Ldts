@@ -4,6 +4,7 @@ import { QUOTAS, track } from "@/lib/kwop";
 import { FREE_LISTS_MONTHLY } from "@/lib/plan-config";
 import { db } from "@/lib/supabase/admin";
 import { pantry, weekMeals } from "@/lib/plan";
+import { getPantry } from "@/lib/pantry";
 import { shopState } from "@/lib/shop";
 import { itemKey, parseWeek } from "@/lib/week";
 import { AiError, aiConfigured, buildShoppingList, estimatePrices } from "@/lib/ai";
@@ -96,7 +97,10 @@ export async function POST(req: Request) {
   const { data: bodies } = await db().from("recipe_bodies").select("recipe_id,body").in("recipe_id", ids);
   const byId = new Map(((bodies ?? []) as { recipe_id: string; body: RecipeBody }[]).map((b) => [b.recipe_id, b.body]));
   try {
-    const home = await pantry(c);
+    // At home = seen in their fridge photos + what they confirmed in the spice-cabinet check ("I'm out" overrides).
+    const [seen, cupboard] = await Promise.all([pantry(c), getPantry(uid)]);
+    const outKeys = new Set(cupboard.out.map(itemKey));
+    const home = Array.from(new Set([...seen, ...cupboard.have])).filter((n) => !outKeys.has(itemKey(n)));
     const lines = await buildShoppingList({
       meals: meals.map((m) => ({
         title: m.recipe.title,
@@ -106,7 +110,8 @@ export async function POST(req: Request) {
       })),
       pantry: home,
     });
-    // "Already at home" is decided here, not by the model: only what was seen in their fridge photos, plus basic staples.
+    // "Already at home" is decided here, not by the model: only what was seen in their fridge photos or confirmed in
+    // their cupboard, plus basic staples.
     const homeKeys = home.map(itemKey).filter((k) => k.length >= 3);
     const STAPLE = /^(salt|kosher salt|sea salt|pepper|black pepper|ground black pepper|water|oil|cooking oil|vegetable oil|olive oil|extra virgin olive oil|cooking spray)$/;
     // "brown rice" is covered by "rice" (same main word at the end); "rice vinegar" is not.

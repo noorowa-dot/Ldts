@@ -1,4 +1,5 @@
 import { AiError, cookFromList } from "@/lib/ai";
+import { getPantry } from "@/lib/pantry";
 import { allowance, getCtx, getRow, saveRecipe, toView } from "@/lib/recipes";
 import { QUOTAS, track } from "@/lib/kwop";
 import { db } from "@/lib/supabase/admin";
@@ -25,6 +26,7 @@ export async function POST(_req: Request, ctx: RouteContext<"/api/recipes/[id]/r
     const g = await cookFromList(row.found.map((f) => f.name), {
       diet: row.diet,
       heat: row.heat,
+      pantry: await getPantry(c.user.id),
       avoidTitles: (family ?? []).map((f: { title: string }) => f.title),
     });
     g.found = row.found;

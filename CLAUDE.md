@@ -7,6 +7,8 @@ Built with the Kwop method (premium build / Kwop Builder). The owner is not a de
 never ask product or design questions; decide like the best apps of the niche and write the choice here.
 
 > The full owner brief lives in `KWOP-BUILD.md` (git-ignored: it contains the Kwop key).
+> **`UPDATES.md` = the owner's list of every update.** Add a numbered line (what, where, status) for every change the
+> owner asks for, in the same commit as the change, and keep statuses current.
 > Secrets live only in `.env.local` and Vercel. Never commit them.
 
 ---
@@ -308,6 +310,27 @@ every table, SQL in `supabase/migrations`) · Vercel (free) · Gemini through `l
   - On an unlocked recipe: "Heat level" row → `POST /api/recipes/[id]/heat` → `adjustHeat()` rewrites the same recipe in
     place (title, main ingredients, servings kept). Free (no recipe used), 20 changes/day/account. Live: ~5 s.
   - Available to every account (plan table row "Heat level"); changing an existing recipe needs it unlocked.
+
+## Spice cabinet check, tips as their own section, fridge reader that learns (Nov 8, evening)
+- Recipe card order: ingredients (legend: olive = fridge, butter = cupboard) → **PantryCheck** (unlocked only) → steps →
+  Shopping Saver → **Chef's tips** (own section, `components/funnel/chef-tips.tsx`, 4-5 cards with `kind`) → **Macros per serving**.
+- Tips: `TIPS_SCHEMA` in lib/ai.ts (4-5, kinds technique/swap/flavor/make-ahead/serving/heat). Older recipes (<3 tips)
+  get theirs written once by `POST /api/recipes/[id]/tips` (Chef only, 40/day) when opened. Locked views always show
+  4+ scrambled cards (`lockedTips` pads with masked filler).
+- PantryCheck (`components/funnel/pantry-check.tsx`): every non-fridge ingredient except staples (`lib/pantry-shared.ts`
+  `isStaple`: salt, pepper, oils, water) → Got it / I'm out / "I have all of these". Answers in `pantry_items`
+  (server writes only; `GET/POST /api/pantry`). "I'm out" → `POST /api/recipes/[id]/swap` (`suggestSwap`, 40/day) and
+  `to_list` adds them to this week's `shop_items` (manual, aisle "Spices & Sauces").
+- The cupboard feeds the chef (`CookOptions.pantry`: may use "have", avoids "out") on scan, remix, rework, heat, and the
+  shopping list's "already at home" (fridge photos + cupboard "have", minus "out").
+- Fridge reading: `PERCEPTION` rules (shelf-by-shelf sweep, read labels/brands, look-alikes, skip opaque containers,
+  no drinks/non-food), `sure: false` for guesses (dashed chips), max 20 items, temperature 0.5, `MEDIA_RESOLUTION_HIGH`
+  (dropped automatically if a model refuses it), uploads downscaled to 1600 px.
+- Learning loop (`lib/vision-memory.ts`): rework on a photo recipe → `vision_feedback` (removed / added / kept).
+  `visionHints()` adds up to 16 lessons to the photo prompt: global mix-ups/misses seen in ≥2 different kitchens
+  (cached 10 min) + the person's own past fixes. Hints only break ties; the prompt forbids listing unseen items.
+- Stats: `node scripts/vision-stats.mjs --remote` (most common mistakes, misses and mix-ups).
+- Migration `20261108170000_pantry_and_vision_memory.sql` (local via `docker exec … psql`, remote via `db query --remote -f`).
 
 ## Vouchers (free access without paying) + creator network
 - Tables `vouchers` (code **hash** only, tier, optional email lock, max uses, optional months / expiry, note, `creator`,

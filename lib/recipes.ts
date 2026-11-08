@@ -5,7 +5,7 @@ import { db } from "./supabase/admin";
 import { getUser, type SessionUser } from "./supabase/server";
 import { getApp, getPlan, QUOTAS, tierOf, type PlanState, type Tier, type KwopPlan } from "./kwop";
 import { getComp, higherTier, tierLabel, type Comp } from "./vouchers";
-import type { Generated, Heat, RecipeBody, RecipeTeaser, RecipeView } from "./types";
+import type { ChefTip, Generated, Heat, RecipeBody, RecipeTeaser, RecipeView } from "./types";
 
 import { ANON_DAILY, FREE_DAILY, FREE_WEEKLY } from "./plan-config";
 export { ANON_DAILY, FREE_DAILY };
@@ -198,6 +198,23 @@ export async function freeStatus(userId: string, recipeId: string) {
   return { thisOne, available, next };
 }
 
+function tipsOf(body: RecipeBody): ChefTip[] {
+  return body.tips?.length ? body.tips : body.tip ? [{ title: "Chef's tip", text: body.tip }] : [];
+}
+
+/** Locked tips keep their kind (it's only a label) and always look like a full set of 4-5, scrambled. */
+const FILLER: ChefTip[] = [
+  { kind: "technique", title: "Get the pan really hot", text: "Heat the pan until a drop of water sizzles away, then add the oil and wait ten seconds before the first ingredient goes in, so it browns instead of steaming." },
+  { kind: "swap", title: "No cream? Use this", text: "Whisk two tablespoons of the starchy cooking water into a spoon of yogurt for the same silky sauce with half the fat and nothing extra to buy." },
+  { kind: "flavor", title: "Finish with acid", text: "A squeeze of lemon or a splash of vinegar right before serving wakes up every other flavor in the pan and makes the whole dish taste brighter." },
+  { kind: "make-ahead", title: "Make it ahead", text: "Cook it up to two days ahead, cool it fast in a shallow container, and reheat gently with a splash of water so it stays as juicy as the first night." },
+];
+function lockedTips(body: RecipeBody, seed: number): ChefTip[] {
+  const real = tipsOf(body);
+  const all = real.length >= 4 ? real : [...real, ...FILLER.filter((f) => !real.some((r) => r.kind && r.kind === f.kind))].slice(0, 4);
+  return all.map((t, i) => ({ ...(t.kind ? { kind: t.kind } : {}), title: mask(t.title, seed + i), text: mask(t.text, seed + i + 7) }));
+}
+
 export async function toView(ctx: Ctx, row: Row): Promise<RecipeView> {
   const { data } = await db().from("recipe_bodies").select("body").eq("recipe_id", row.id).maybeSingle();
   const body = ((data as { body: RecipeBody } | null)?.body ?? { ingredients: [], steps: [], shopping: [], tip: "", macros: { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 } }) as RecipeBody;
@@ -222,9 +239,7 @@ export async function toView(ctx: Ctx, row: Row): Promise<RecipeView> {
     steps: body.steps.map((s, idx) => (unlocked ? s : { title: idx === 0 ? s.title : mask(s.title, seed + idx), text: mask(s.text, seed + idx), minutes: s.minutes })),
     shopping: access.shopping ? body.shopping : body.shopping.map((s) => ({ item: mask(s.item, seed), why: mask(s.why, seed) })),
     tip: access.macros ? body.tip : mask(body.tip, seed),
-    tips: (body.tips?.length ? body.tips : body.tip ? [{ title: "Chef's tip", text: body.tip }] : []).map((t, i) =>
-      access.macros ? t : { title: mask(t.title, seed + i), text: mask(t.text, seed + i + 7) }
-    ),
+    tips: access.macros ? tipsOf(body) : lockedTips(body, seed),
     macros: access.macros
       ? body.macros
       : {

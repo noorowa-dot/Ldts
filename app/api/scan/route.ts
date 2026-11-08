@@ -6,6 +6,8 @@ import { err, json } from "@/lib/http";
 import { supabaseConfigured } from "@/lib/supabase/config";
 import { db } from "@/lib/supabase/admin";
 import type { Diet, Heat } from "@/lib/types";
+import { getPantry } from "@/lib/pantry";
+import { visionHints } from "@/lib/vision-memory";
 
 const HEATS = ["mild", "medium", "hot", "extra"] as const;
 
@@ -60,6 +62,9 @@ export async function POST(req: Request) {
     calorieTarget = (data as { calorie_target: number | null } | null)?.calorie_target ?? null;
   }
 
+  // What they told us about their cupboard, and what the fridge reader learned from past corrections.
+  const [pantry, hints] = await Promise.all([getPantry(ctx.user?.id), visionHints(ctx.user?.id)]);
+
   const photo = form.get("photo");
   const example = form.get("example");
   const list = form.get("list");
@@ -71,19 +76,19 @@ export async function POST(req: Request) {
       const mime = photo.type || "image/jpeg";
       if (!["image/jpeg", "image/png", "image/webp"].includes(mime)) return err("bad_type", "Please use a JPG, PNG or WebP photo.");
       const bytes = Buffer.from(await photo.arrayBuffer());
-      const g = await withRetry(() => cookFromPhoto({ data: bytes.toString("base64"), mimeType: mime }, { diet, calorieTarget, heat }));
+      const g = await withRetry(() => cookFromPhoto({ data: bytes.toString("base64"), mimeType: mime }, { diet, calorieTarget, heat, pantry, visionHints: hints }));
       id = await saveRecipe(ctx, g, { source: "photo", heat, diet, photo: { bytes, mime } });
     } else if (typeof example === "string" && (EXAMPLES as readonly string[]).includes(example)) {
       const origin = new URL(req.url).origin;
       const res = await fetch(`${origin}/examples/${example}.jpg`);
       if (!res.ok) return err("example_missing", "That example is not available right now.", 500);
       const bytes = Buffer.from(await res.arrayBuffer());
-      const g = await withRetry(() => cookFromPhoto({ data: bytes.toString("base64"), mimeType: "image/jpeg" }, { diet, calorieTarget, heat }));
+      const g = await withRetry(() => cookFromPhoto({ data: bytes.toString("base64"), mimeType: "image/jpeg" }, { diet, calorieTarget, heat, pantry, visionHints: hints }));
       id = await saveRecipe(ctx, g, { source: "example", heat, diet, photo: { bytes, mime: "image/jpeg" } });
     } else if (typeof list === "string" && list.trim()) {
       const items = list.split(",").map((s) => s.trim().slice(0, 40)).filter(Boolean).slice(0, 20);
       if (items.length < 2) return err("short_list", "Add at least 2 ingredients.");
-      const g = await withRetry(() => cookFromList(items, { diet, calorieTarget, heat }));
+      const g = await withRetry(() => cookFromList(items, { diet, calorieTarget, heat, pantry }));
       id = await saveRecipe(ctx, g, { source: "list", heat, diet });
     } else {
       return err("no_input", "Add a photo of your fridge first.");

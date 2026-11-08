@@ -4,6 +4,7 @@
 // Usage: node scripts/dev-fixture.mjs <anon-uuid>          one anonymous recipe
 //        node scripts/dev-fixture.mjs --user <email>        one recipe owned by that account
 //        node scripts/dev-fixture.mjs --shop <email>        a sample shopping list for this week
+//        add --old to write the recipe as an older one (a single tip), to test the tips backfill
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
 const env = Object.fromEntries((readFileSync(".env.local", "utf8") + "\n" + (() => { try { return readFileSync(".env.development.local", "utf8"); } catch { return ""; } })()).split("\n").filter((l) => l.includes("=") && !l.startsWith("#")).map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1)]));
@@ -42,7 +43,7 @@ if (flag === "--shop") {
 const id = crypto.randomUUID();
 const path = `${userId ?? "anon-" + anon}/${id}.jpg`;
 await db.storage.from("fridge-photos").upload(path, readFileSync("public/examples/half-empty-fridge.jpg"), { contentType: "image/jpeg" });
-const found = [["Eggs", 24, 20], ["Feta", 52, 24], ["Lemons", 74, 28], ["Baby spinach", 18, 52], ["Cherry tomatoes", 44, 56], ["Chicken thighs", 74, 58], ["Onion", 17, 86], ["Garlic", 31, 89], ["Milk", 78, 80]].map(([name, x, y]) => ({ name, x, y }));
+const found = [["Eggs", 24, 20], ["Feta", 52, 24], ["Lemons", 74, 28], ["Baby spinach", 18, 52], ["Cherry tomatoes", 44, 56], ["Chicken thighs", 74, 58], ["Onion", 17, 86], ["Garlic", 31, 89], ["Milk", 78, 80]].map(([name, x, y]) => ({ name, x, y, ...(name === "Milk" ? { sure: false } : {}) }));
 await db.from("recipes").insert({ id, user_id: userId, anon_id: anon, ip_hash: "fixture", photo_path: path, source: "example", title: "Lemon-Garlic Chicken Skillet", intro: "Crispy chicken thighs, wilted spinach and bursting tomatoes, finished with feta and lemon: one pan, 25 minutes.", time_minutes: 25, servings: 2, difficulty: "Easy", found, uses: ["Chicken thighs", "Baby spinach", "Cherry tomatoes", "Feta", "Lemons", "Garlic"], diet: [] });
 await db.from("recipe_bodies").insert({ recipe_id: id, body: {
   ingredients: [
@@ -53,6 +54,9 @@ await db.from("recipe_bodies").insert({ recipe_id: id, body: {
     { item: "Lemon", amount: "1", from_fridge: true },
     { item: "Garlic", amount: "3 cloves", from_fridge: true },
     { item: "Olive oil", amount: "1 tbsp", from_fridge: false },
+    { item: "Smoked paprika", amount: "1 tsp", from_fridge: false },
+    { item: "Dried oregano", amount: "1/2 tsp", from_fridge: false },
+    { item: "Red pepper flakes", amount: "1 pinch", from_fridge: false },
     { item: "Salt and pepper", amount: "to taste", from_fridge: false },
   ],
   steps: [
@@ -64,10 +68,12 @@ await db.from("recipe_bodies").insert({ recipe_id: id, body: {
   ],
   shopping: [],
   tip: "Start the chicken in a pan that is fully hot and don't move it for 6 minutes: that is how you get crispy skin.",
-  tips: [
-    { title: "Dry the chicken first", text: "Pat the thighs completely dry and salt them 10 minutes ahead. Dry skin browns instead of steaming, so you get a crisp, golden crust." },
-    { title: "Swap the feta", text: "No feta? Goat cheese or a spoon of Greek yogurt with lemon zest gives the same tangy finish." },
-    { title: "Make it ahead", text: "Sear the chicken up to a day ahead and keep it in the fridge. Reheat in the pan for 5 minutes, then add the fresh spinach." },
+  tips: process.argv.includes("--old") ? undefined : [
+    { kind: "technique", title: "Dry the chicken first", text: "Pat the thighs completely dry and salt them 10 minutes ahead. Dry skin browns instead of steaming, so you get a crisp, golden crust." },
+    { kind: "swap", title: "Swap the feta", text: "No feta? Goat cheese or a spoon of Greek yogurt with lemon zest gives the same tangy finish." },
+    { kind: "flavor", title: "Scrape up the brown bits", text: "After searing, the browned bits in the pan are pure flavor. The lemon juice loosens them: scrape with a wooden spoon so they melt into the sauce." },
+    { kind: "make-ahead", title: "Make it ahead", text: "Sear the chicken up to a day ahead and keep it in the fridge. Reheat in the pan for 5 minutes, then add the fresh spinach." },
+    { kind: "serving", title: "Serve it with bread", text: "Put a warm, crusty baguette or pita on the table to mop up the lemony pan juices; a pot of rice works just as well." },
   ],
   macros: { calories: 520, protein_g: 42, carbs_g: 9, fat_g: 34 },
 } });

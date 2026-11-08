@@ -3,6 +3,8 @@ import { AiError, aiConfigured, cookFromList } from "@/lib/ai";
 import { allowance, getCtx, getRow, ownsRow, saveRecipe, toView } from "@/lib/recipes";
 import { track } from "@/lib/kwop";
 import { err, json } from "@/lib/http";
+import { getPantry } from "@/lib/pantry";
+import { recordCorrection } from "@/lib/vision-memory";
 
 export const maxDuration = 120;
 
@@ -20,13 +22,16 @@ export async function POST(req: Request, ctx: RouteContext<"/api/recipes/[id]/re
   const allow = await allowance(c);
   if (!allow.ok) return err(allow.reason, allow.reason === "anon_limit" ? "You've made 3 free recipes today. Create a free account to keep going." : "You've used the recipes included today. Pick a plan to cook more.", 429);
   const items = Array.from(new Set(parsed.data.items.map((s) => s.replace(/\s+/g, " "))));
+  // The fridge reader learns: what it saw wrongly and what it missed on this photo.
+  if (row.photo_path && (row.source === "photo" || row.source === "example"))
+    await recordCorrection({ userId: c.user?.id ?? null, recipeId: row.id, detected: row.found.map((f) => f.name), corrected: items });
   try {
-    const g = await cookFromList(items, { diet: row.diet, heat: row.heat });
+    const g = await cookFromList(items, { diet: row.diet, heat: row.heat, pantry: await getPantry(c.user?.id) });
     // Keep the photo pins for items that were already there; new items are listed without a pin.
     const pos = new Map(row.found.map((f) => [f.name.toLowerCase(), f]));
     g.found = items.map((name) => {
       const p = pos.get(name.toLowerCase());
-      return { name, x: p?.x ?? -1, y: p?.y ?? -1 };
+      return { name, x: p?.x ?? -1, y: p?.y ?? -1 }; // confirmed by the person: no longer a guess
     });
     const newId = await saveRecipe(c, g, { source: row.photo_path ? "photo" : "list", heat: row.heat, diet: row.diet, photoPath: row.photo_path, parentId: null });
     track("feature_used", c.user?.email, "edit_ingredients");

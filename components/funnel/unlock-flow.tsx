@@ -44,7 +44,7 @@ export function event(type: "paywall_view" | "feature_used" | "aha", detail?: st
 
 const ADDS: Record<UpgradeFeature, string> = {
   shopping: "Shopping Saver: the tiny list of what's missing",
-  macros: "Macros per serving and the chef's tip on every dish",
+  macros: "4-5 chef's tips on every dish (technique, swaps, make-ahead) and macros per serving",
   remix: "Remix: same fridge, a brand-new dish",
   saved: "More saved recipes",
   quota: "More recipes every month",

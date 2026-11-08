@@ -165,6 +165,7 @@ function Inner({ recipe, setRecipe }: { recipe: RecipeView; setRecipe: (r: Recip
         onEditIngredients={reworking ? undefined : rework}
         onHeat={changeHeat}
         heatBusy={heatBusy}
+        onRecipe={setRecipe}
         actions={{ onFavorite: favorite, onShare: share, onRemix: remix, onDelete: () => setConfirmDel(true), remixing }}
       />
       {confirmDel && (

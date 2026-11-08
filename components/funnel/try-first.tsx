@@ -29,13 +29,13 @@ type Phase =
 async function compress(file: File): Promise<Blob> {
   try {
     const bmp = await createImageBitmap(file);
-    const max = 1280;
+    const max = 1600; // enough detail to read labels on a crowded shelf
     const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
     const c = document.createElement("canvas");
     c.width = Math.round(bmp.width * scale);
     c.height = Math.round(bmp.height * scale);
     c.getContext("2d")!.drawImage(bmp, 0, 0, c.width, c.height);
-    const blob = await new Promise<Blob | null>((r) => c.toBlob(r, "image/jpeg", 0.85));
+    const blob = await new Promise<Blob | null>((r) => c.toBlob(r, "image/jpeg", 0.86));
     return blob ?? file;
   } catch {
     return file;
@@ -411,6 +411,7 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock, options }: { reci
               onEditIngredients={(items) => run({ url: `/api/recipes/${phase.recipe.id}/rework`, json: { items } }, phase.recipe.photo_url ?? "")}
               onHeat={phase.recipe.access.unlocked ? changeHeat : undefined}
               heatBusy={heatBusy}
+              onRecipe={setRecipe}
             />
             {!phase.recipe.access.unlocked && (
               <div className="mt-4 flex flex-col items-center gap-3">

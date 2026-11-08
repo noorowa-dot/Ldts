@@ -19,7 +19,7 @@ const perDay = (p: PublicPlan, period: "month" | "year") => (period === "year" &
 const splitDay = (s: string) => s.replace(/\s*\/\s*day/i, "");
 
 const FAQ = [
-  { q: "Will it work with my fridge?", a: "Yes. Platepal reads any normal photo: a messy fridge, one pantry shelf, a few things on the counter. If a photo is too dark, it tells you and you can retake it. You already saw your own recipe being made." },
+  { q: "Will it work with my fridge?", a: "Yes. Platepal reads any normal photo: a messy fridge, one pantry shelf, a few things on the counter. It marks anything it isn't sure about so you can fix it, and learns from every fix. You already saw your own recipe being made." },
   { q: "Can I cancel?", a: "Anytime, in 2 taps: Account → Billing → Cancel my subscription. You keep your plan until the end of the period you paid for. No calls, no emails." },
   { q: "What happens right after I pay?", a: "Your recipe unlocks on this screen, right away: every amount, every step. No email to check, no reload. Then you can snap your next fridge." },
 ];

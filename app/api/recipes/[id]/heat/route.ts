@@ -5,6 +5,7 @@ import { track } from "@/lib/kwop";
 import { db } from "@/lib/supabase/admin";
 import { err, json } from "@/lib/http";
 import type { RecipeBody } from "@/lib/types";
+import { getPantry } from "@/lib/pantry";
 
 export const maxDuration = 120;
 
@@ -39,7 +40,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/recipes/[id]/he
     const g = await adjustHeat(
       { title: row.title, intro: row.intro, time_minutes: row.time_minutes, servings: row.servings, difficulty: row.difficulty, ingredients: body.ingredients, steps: body.steps, uses: row.uses },
       parsed.data.heat,
-      { diet: row.diet }
+      { diet: row.diet, pantry: await getPantry(c.user.id) }
     );
     const next: RecipeBody = { ingredients: g.ingredients, steps: g.steps, shopping: body.shopping, tip: g.tip, tips: g.tips?.length ? g.tips : body.tips, macros: g.macros?.calories ? g.macros : body.macros };
     await db().from("recipe_bodies").update({ body: next } as never).eq("recipe_id", id);

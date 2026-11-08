@@ -1,6 +1,6 @@
 import "server-only";
-import { GoogleGenAI, ThinkingLevel } from "@google/genai";
-import type { Diet, Generated, Heat } from "./types";
+import { GoogleGenAI, MediaResolution, ThinkingLevel } from "@google/genai";
+import type { ChefTip, Diet, Generated, Heat, TipKind } from "./types";
 
 /**
  * The only place Platepal talks to an AI model (Google Gemini).
@@ -27,17 +27,39 @@ export function aiConfigured() {
   return Boolean(process.env.GEMINI_API_KEY);
 }
 
+const TIP_KIND_IDS: TipKind[] = ["technique", "swap", "flavor", "make-ahead", "serving", "heat"];
+const TIPS_SCHEMA = {
+  type: "array",
+  description:
+    "4 to 5 substantial chef's tips for THIS exact dish, each a different kind: technique (what to do and WHY it works), swap (a substitution for an ingredient people often lack), flavor (a small boost that lifts the dish), make-ahead (prep ahead, leftovers, storage and reheating), serving (what to serve with it or how to plate it). Concrete amounts, times and temperatures; 25-50 words each; never generic advice like 'taste as you go'.",
+  items: {
+    type: "object",
+    properties: {
+      kind: { type: "string", enum: TIP_KIND_IDS },
+      title: { type: "string", description: "2-5 words, e.g. 'Dry the chicken first'" },
+      text: { type: "string" },
+    },
+    required: ["kind", "title", "text"],
+  },
+};
+
 const schema = {
   type: "object",
   properties: {
     no_food: { type: "boolean", description: "true only if the photo shows no food or ingredients at all" },
     found: {
       type: "array",
-      description: "Every distinct food item you can see, most visible first (max 14). x/y = the center of that item in the photo, on a 0-1000 scale (0,0 = top-left, 1000,1000 = bottom-right). Each item gets its own position.",
+      description:
+        "Every distinct cooking ingredient you can identify, found by the shelf-by-shelf sweep, most useful first (max 20). x/y = the center of that item in the photo, on a 0-1000 scale (0,0 = top-left, 1000,1000 = bottom-right). Each item gets its own position.",
       items: {
         type: "object",
-        properties: { name: { type: "string" }, x: { type: "number" }, y: { type: "number" } },
-        required: ["name", "x", "y"],
+        properties: {
+          name: { type: "string", description: "Specific, plain grocery name: 'Greek yogurt' not 'Yogurt container', 'Cheddar' not 'Cheese' when the label or look says so" },
+          x: { type: "number" },
+          y: { type: "number" },
+          sure: { type: "boolean", description: "true = clearly visible or label readable. false = your best guess (partly hidden, blurry, unlabeled container)" },
+        },
+        required: ["name", "x", "y", "sure"],
       },
     },
     title: { type: "string", description: "Appetizing dish name, Title Case, max 6 words" },
@@ -68,16 +90,7 @@ const schema = {
       description: "0 to 3 missing items, ONLY if strictly necessary. Basic pantry staples (salt, pepper, oil, water) never go here.",
       items: { type: "object", properties: { item: { type: "string" }, why: { type: "string" } }, required: ["item", "why"] },
     },
-    tips: {
-      type: "array",
-      description:
-        "3 to 5 substantial chef's tips for THIS dish, each different in kind: a technique that makes it better (why it works), a swap or substitution, a flavor boost, make-ahead or leftovers/storage, and how to serve or plate it. Concrete, 20-45 words each.",
-      items: {
-        type: "object",
-        properties: { title: { type: "string", description: "2-5 words, e.g. 'Dry the chicken first'" }, text: { type: "string" } },
-        required: ["title", "text"],
-      },
-    },
+    tips: TIPS_SCHEMA,
     macros: {
       type: "object",
       description: "Estimated per serving",
@@ -96,7 +109,36 @@ type CookOptions = {
   mode?: "fridge" | "idea";
   /** Spice level. Never changes which dish is chosen: only how much heat it carries. */
   heat?: Heat | null;
+  /** What the person told us about their cupboard (from the "Check your spice cabinet" list). */
+  pantry?: { have: string[]; out: string[] } | null;
+  /** Lessons from past corrections of fridge photos (lib/vision-memory.ts). Photo mode only. */
+  visionHints?: string[];
+  /** The input is a photo: add the perception rules. */
+  photo?: boolean;
 };
+
+/**
+ * How to read a real, messy fridge. Written from what people correct most: hidden items in the door, look-alike
+ * containers (yogurt / sour cream / cream cheese), unlabeled leftovers, and generic names.
+ */
+const PERCEPTION = [
+  "READING THE PHOTO (do this first, carefully, before thinking about the recipe):",
+  "1. Sweep the whole photo in order: each shelf from top to bottom and left to right, then the door shelves, the drawers, and anything on the counter. Real fridges are messy: look behind and between items, at partly hidden things, and at the edges of the photo.",
+  "2. Identify each item by its shape, color, texture and packaging, and READ every visible label or brand: brands tell you what is inside (for example a Chobani cup is Greek yogurt, Philadelphia is cream cheese, a green-capped rooster bottle is sriracha, Kerrygold is butter).",
+  "3. Be specific when the photo shows it: 'Cheddar', 'Baby spinach', 'Red bell pepper', 'Chicken thighs', 'Oat milk'. If you can only tell the category, use the plain category ('Cheese', 'Lettuce').",
+  "4. Look-alikes: tell yogurt, sour cream and cream cheese apart by the tub shape and label; milk vs. plant milk vs. juice by the carton text; butter vs. margarine by the label; eggs in a carton count as eggs.",
+  "5. Opaque or unlabeled containers and leftovers: list them only when the food inside is visible ('Leftover rice', 'Cooked pasta'); otherwise skip them. Never guess a hidden container's contents.",
+  "6. Skip non-food (medicine, film canisters), plain water, soda and energy drinks. Keep cooking-useful drinks and condiments (milk, wine, beer, broth, sauces, jams, pickles, mustard, ketchup, mayo, hot sauce).",
+  "7. Count each distinct item once (three lemons = 'Lemons'). Mark `sure: false` when it is your best guess. Never list anything you cannot see.",
+];
+
+function pantryLines(p?: CookOptions["pantry"]) {
+  if (!p) return [];
+  const out: string[] = [];
+  if (p.have.length) out.push(`The person confirmed they keep these in their cupboard, so you may use them like staples: ${p.have.slice(0, 40).join(", ")}.`);
+  if (p.out.length) out.push(`The person said they have run out of: ${p.out.slice(0, 30).join(", ")}. Avoid them, or list them in \`shopping\` only if truly needed.`);
+  return out;
+}
 
 const HEAT_RULES: Record<Heat, string> = {
   mild: "MILD: no chili heat at all (no chili flakes, cayenne, hot sauce or hot peppers); black pepper is fine. Family and kid friendly.",
@@ -125,6 +167,14 @@ function instructions(o: CookOptions) {
           "Build ONE delicious, realistic recipe that relies on the visible ingredients. Assume only these staples exist: salt, pepper, cooking oil, water, butter is NOT assumed.",
           "Prefer recipes ready in 30 minutes or less. Never invent ingredients that are not visible or a staple; anything else goes in `shopping` and only if truly needed.",
         ];
+  if (o.photo) {
+    lines.push(...PERCEPTION);
+    if (o.visionHints?.length) lines.push("LESSONS FROM PAST CORRECTIONS (use them as tie-breakers when an item is ambiguous; they never allow listing something you cannot see):", ...o.visionHints.map((h) => `- ${h}`));
+  }
+  lines.push(...pantryLines(o.pantry));
+  lines.push(
+    "Ingredients: from_fridge = true only for items in `found`. Everything else (spices, sauces, flour, staples) is from_fridge = false: keep that list short and common, so the person can check their cupboard in seconds."
+  );
   if (o.diet?.length) lines.push(`The recipe MUST be: ${o.diet.join(", ")}. Skip items that break this.`);
   if (o.calorieTarget) lines.push(`Aim for about ${o.calorieTarget} calories per serving.`);
   if (o.avoidTitles?.length) lines.push(`Make something clearly different from: ${o.avoidTitles.join("; ")}.`);
@@ -135,7 +185,7 @@ function instructions(o: CookOptions) {
 
 const HEDGE_MS = Number(process.env.GEMINI_HEDGE_MS || 6000);
 
-type JsonCall = { system: string; schema: object; temperature: number };
+type JsonCall = { system: string; schema: object; temperature: number; /** Read small labels in photos. */ hiRes?: boolean };
 
 async function callModel(model: string, parts: object[], c: JsonCall, timeout: number, signal: AbortSignal): Promise<Record<string, unknown>> {
   let thinking = true;
@@ -150,6 +200,7 @@ async function callModel(model: string, parts: object[], c: JsonCall, timeout: n
           responseMimeType: "application/json",
           responseJsonSchema: c.schema,
           temperature: c.temperature,
+          ...(c.hiRes ? { mediaResolution: MediaResolution.MEDIA_RESOLUTION_HIGH } : {}),
           ...(thinking ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } } : {}),
           abortSignal: signal,
           httpOptions: { timeout, retryOptions: { attempts: 1 } },
@@ -158,6 +209,10 @@ async function callModel(model: string, parts: object[], c: JsonCall, timeout: n
       console.log(`[ai] ${model} answered in ${Date.now() - t0} ms`);
       return JSON.parse(res.text ?? "{}");
     } catch (e) {
+      if (c.hiRes && /resolution/i.test(String((e as Error)?.message))) {
+        c = { ...c, hiRes: false }; // this model takes no media resolution: ask again with the default
+        continue;
+      }
       if (thinking && /thinking/i.test(String((e as Error)?.message))) {
         thinking = false; // this model has no thinking levels: ask again without it
         continue;
@@ -210,7 +265,8 @@ async function runJson<T>(parts: object[], c: JsonCall, check: (d: Record<string
 }
 
 function run(parts: object[], o: CookOptions): Promise<Generated> {
-  return runJson(parts, { system: instructions(o), schema, temperature: o.avoidTitles?.length ? 1 : 0.7 }, (data) => {
+  // Lower temperature when reading a photo: the list of what is there should not be creative.
+  return runJson(parts, { system: instructions(o), schema, temperature: o.avoidTitles?.length ? 1 : o.photo ? 0.5 : 0.7, hiRes: o.photo }, (data) => {
     if (data.no_food || !(data.found as unknown[])?.length) throw new AiError("no_food", "We couldn't spot any food in that photo.");
     return sanitize(data);
   });
@@ -229,15 +285,15 @@ function str(s: unknown, max: number) {
  * When they are clearly unusable (all piled on one spot), they are dropped and the photo shows no pins.
  */
 function placeFound(raw: Record<string, unknown>[]) {
-  const pts = raw.map((f) => ({ name: nice(str(f.name, 40)), x: Number(f.x), y: Number(f.y) }));
+  const pts = raw.map((f) => ({ name: nice(str(f.name, 40)), x: Number(f.x), y: Number(f.y), sure: f.sure !== false }));
   const max = Math.max(0, ...pts.flatMap((p) => [p.x, p.y]).filter(Number.isFinite));
   const k = max > 100 ? 0.1 : max <= 1 ? 100 : 1;
   const found = dedupe(
-    pts.map((p) => ({ name: p.name, x: clamp(p.x * k, 4, 96, -1), y: clamp(p.y * k, 6, 94, -1) }))
-  ).slice(0, 14);
+    pts.map((p) => ({ name: p.name, x: clamp(p.x * k, 4, 96, -1), y: clamp(p.y * k, 6, 94, -1), ...(p.sure ? {} : { sure: false }) }))
+  ).slice(0, 20);
   const distinct = new Set(found.map((f) => `${Math.round(f.x / 8)}:${Math.round(f.y / 8)}`)).size;
   const usable = found.length <= 1 || distinct >= Math.ceil(found.length * 0.6);
-  return found.map((f) => (usable && f.x >= 0 && f.y >= 0 ? f : { name: f.name, x: -1, y: -1 }));
+  return found.map((f) => (usable && f.x >= 0 && f.y >= 0 ? f : { ...f, x: -1, y: -1 }));
 }
 
 /** "dozen eggs" → "Eggs", "lemon" → "Lemon". */
@@ -255,10 +311,14 @@ function dedupe<T extends { name: string }>(xs: T[]) {
   });
 }
 
-function tipsOf(d: Record<string, unknown>): { tip: string; tips: { title: string; text: string }[] } {
+function tipsOf(d: Record<string, unknown>): { tip: string; tips: ChefTip[] } {
   const raw = Array.isArray(d.tips) ? (d.tips as Record<string, unknown>[]) : [];
-  const tips = raw
-    .map((t) => ({ title: str(t?.title, 60), text: str(t?.text, 420) }))
+  const tips: ChefTip[] = raw
+    .map((t) => ({
+      title: str(t?.title, 60),
+      text: str(t?.text, 420),
+      ...(TIP_KIND_IDS.includes(t?.kind as TipKind) ? { kind: t.kind as TipKind } : {}),
+    }))
     .filter((t) => t.text)
     .slice(0, 5);
   if (!tips.length && d.tip) tips.push({ title: "Chef's tip", text: str(d.tip, 420) });
@@ -274,7 +334,7 @@ function sanitize(d: Record<string, unknown>): Generated {
     time_minutes: clamp(d.time_minutes, 5, 180, 25),
     servings: clamp(d.servings, 1, 8, 2),
     difficulty: (["Easy", "Medium", "Hard"].includes(d.difficulty as string) ? d.difficulty : "Easy") as Generated["difficulty"],
-    uses: Array.from(new Set(arr(d.uses).map((s) => nice(str(s, 40))))).slice(0, 14),
+    uses: Array.from(new Set(arr(d.uses).map((s) => nice(str(s, 40))))).slice(0, 20),
     ingredients: arr(d.ingredients).slice(0, 20).map((i: Record<string, unknown>) => ({
       item: str(i.item, 60),
       amount: str(i.amount, 40),
@@ -301,9 +361,9 @@ export function cookFromPhoto(image: { data: string; mimeType: string }, o: Cook
   return run(
     [
       { inlineData: image },
-      { text: "Here is a photo of my fridge, pantry or counter. List what you see and make tonight's recipe from it." },
+      { text: "Here is a photo of my fridge, pantry or counter. Sweep it shelf by shelf, list what you see, then make tonight's recipe from it." },
     ],
-    o
+    { ...o, photo: true }
   );
 }
 
@@ -457,4 +517,46 @@ export function adjustHeat(
     JSON.stringify(current),
   ].join("\n");
   return run([{ text }], { ...o, heat, mode: "idea" });
+}
+
+
+/* ---------------- Chef's tips for older recipes, and swaps for the cupboard check ---------------- */
+
+/** Older recipes had one short tip: write the full set of 4-5 for the same dish (nothing else changes). */
+export function writeTips(recipe: { title: string; ingredients: { item: string; amount: string }[]; steps: { title: string; text: string }[]; heat?: Heat | null }): Promise<ChefTip[]> {
+  const text = [
+    `Dish: ${recipe.title}`,
+    `Ingredients: ${recipe.ingredients.map((i) => `${i.amount} ${i.item}`).join("; ")}`,
+    `Steps: ${recipe.steps.map((s, i) => `${i + 1}. ${s.title}: ${s.text}`).join(" ")}`,
+    recipe.heat ? `Heat level: ${recipe.heat}` : "",
+  ].join("\n");
+  const system = "You are Platepal's chef. Write the chef's tips for this exact recipe, in simple American English (cups, tablespoons, °F). Kind, short, concrete.";
+  return runJson([{ text }], { system, schema: { type: "object", properties: { tips: TIPS_SCHEMA }, required: ["tips"] }, temperature: 0.6 }, (d) => {
+    const t = tipsOf(d).tips;
+    if (t.length < 3) throw new AiError("failed", "Too few tips");
+    return t;
+  });
+}
+
+/** "Out of it?": the best swap for one cupboard item in this recipe, from common things (or skip it). */
+export function suggestSwap(recipe: { title: string; ingredients: { item: string; amount: string }[] }, item: string, pantry: string[] = []): Promise<{ swap: string; text: string }> {
+  const schema = {
+    type: "object",
+    properties: {
+      swap: { type: "string", description: "The replacement with its amount, e.g. '1 tsp sweet paprika + a pinch of cumin', or 'Skip it'" },
+      text: { type: "string", description: "One friendly sentence, max 22 words: how it changes the dish" },
+    },
+    required: ["swap", "text"],
+  };
+  const text = [
+    `Recipe: ${recipe.title}. Ingredients: ${recipe.ingredients.map((i) => `${i.amount} ${i.item}`).join("; ")}.`,
+    `I don't have: ${item}. What can I use instead?`,
+    pantry.length ? `I do have: ${pantry.slice(0, 30).join(", ")}.` : "",
+  ].join("\n");
+  const system = "You are Platepal's chef. Suggest the single best substitution a US home cook is likely to have, with an amount. If the item is optional, say it can be skipped. Simple American English.";
+  return runJson([{ text }], { system, schema, temperature: 0.3 }, (d) => {
+    const swap = str(d.swap, 90);
+    if (!swap) throw new AiError("failed", "No swap");
+    return { swap, text: str(d.text, 180) };
+  });
 }
