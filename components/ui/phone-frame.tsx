@@ -15,7 +15,7 @@ export function PhoneFrame({ children, className }: { children: React.ReactNode;
     <div className={cn("relative mx-auto aspect-[9/19] w-[270px] rounded-[46px] bg-[#0d0c09] p-[9px] shadow-[0_40px_80px_-30px_rgb(0_0_0/.7),inset_0_0_0_1.5px_#3b362c]", className)}>
       <div className="absolute -left-[2px] top-24 h-10 w-[3px] rounded-l bg-[#2a261f]" />
       <div className="absolute -right-[2px] top-32 h-16 w-[3px] rounded-r bg-[#2a261f]" />
-      <div className="relative h-full w-full overflow-hidden rounded-[38px] bg-cream">
+      <div className="relative h-full w-full overflow-hidden rounded-[38px] bg-cream text-left text-text">
         <div className="absolute inset-x-0 top-0 z-20 flex h-11 items-center justify-between px-7 text-[13px] font-semibold text-ink">
           <span suppressHydrationWarning>{time}</span>
           <span className="flex items-center gap-1">

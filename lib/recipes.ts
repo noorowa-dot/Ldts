@@ -172,7 +172,7 @@ export async function toView(ctx: Ctx, row: Row): Promise<RecipeView> {
   const body = ((data as { body: RecipeBody } | null)?.body ?? { ingredients: [], steps: [], shopping: [], tip: "", macros: { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 } }) as RecipeBody;
   const q = QUOTAS[ctx.tier];
   const unlocked = ctx.tier !== "none" && Boolean(ctx.user && row.user_id === ctx.user.id);
-  const access = { unlocked, shopping: unlocked && q.shopping, macros: unlocked && q.macros, planName: ctx.plan.plan?.name ?? null };
+  const access = { unlocked, shopping: unlocked && q.shopping, macros: unlocked && q.macros, planName: ctx.plan.plan?.name?.replace(/^Platepal\s+/i, "") ?? null, tier: ctx.tier };
   const seed = parseInt(row.id.slice(0, 6), 16) % 1000;
   const view: RecipeBody = {
     ingredients: body.ingredients.map((i) =>
@@ -181,7 +181,14 @@ export async function toView(ctx: Ctx, row: Row): Promise<RecipeView> {
     steps: body.steps.map((s, idx) => (unlocked ? s : { title: idx === 0 ? s.title : mask(s.title, seed + idx), text: mask(s.text, seed + idx), minutes: s.minutes })),
     shopping: access.shopping ? body.shopping : body.shopping.map((s) => ({ item: mask(s.item, seed), why: mask(s.why, seed) })),
     tip: access.macros ? body.tip : mask(body.tip, seed),
-    macros: access.macros ? body.macros : { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 },
+    macros: access.macros
+      ? body.macros
+      : {
+          calories: Number(mask(String(body.macros.calories || 400), seed).replace(/^0/, "4")),
+          protein_g: Number(mask(String(body.macros.protein_g || 20), seed + 2).replace(/^0/, "2")),
+          carbs_g: Number(mask(String(body.macros.carbs_g || 30), seed + 3).replace(/^0/, "3")),
+          fat_g: Number(mask(String(body.macros.fat_g || 15), seed + 4).replace(/^0/, "1")),
+        },
   };
   return {
     id: row.id,

@@ -42,6 +42,7 @@ export type RecipeView = RecipeTeaser & {
     shopping: boolean;
     macros: boolean; // macros + chef tip
     planName: string | null;
+    tier: "none" | "starter" | "pro" | "chef";
   };
 };
 
