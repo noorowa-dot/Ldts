@@ -279,6 +279,13 @@ every table, SQL in `supabase/migrations`) · Vercel (free) · Gemini through `l
   (15/day cap). Re-builds keep manual items and ticks.
 - Price check (Pro/Chef): the person's own price book per store (`price_book`), store totals, cheapest single store,
   "split your shop" savings, cheapest-store chip on each list item. Stores editable (max 5, default Kroger/Walmart/Aldi), ZIP.
+- **Automatic shop cost**: the list builder also returns `est_price_usd` per item (typical price of that exact pack at a
+  major US supermarket); stored as `shop_items.est_cents`. Manual items, edited items and older lists are estimated with
+  `estimatePrices()` (action `estimate`). The shop shows "~$X estimated shop", a "~$" price on every item, and "in your
+  cart so far". Labelled as AI estimates; never presented as a store's real price.
+- **What you actually paid**: `shop_receipts` (one row per store trip, with the estimate at that time). The form appears by
+  itself once everything is ticked ("Done shopping? What did you pay?"), then "X under / over the estimate" and a
+  weekly "Your grocery spend" history.
 - Live store prices: `lib/prices.ts` provider list. Kroger Products API is wired (client-credentials OAuth, location by
   ZIP, 24 h cache in `price_cache`) and turns on when `KROGER_CLIENT_ID` + `KROGER_CLIENT_SECRET` are set in Vercel.
   **Not yet verified against the real API** (no keys). Future store partners plug in as new providers.
