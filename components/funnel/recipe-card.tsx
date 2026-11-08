@@ -5,6 +5,7 @@ import { Check, ChefHat, Clock, Flame, Heart, Lock, Shuffle, ShoppingBasket, Sha
 import type { RecipeView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Sticker, toneCycle } from "@/components/ui/sticker";
+import { CookSteps } from "./cook-steps";
 
 export type UpgradeFeature = "shopping" | "macros" | "remix" | "saved" | "quota" | "diet" | "plan" | "shop" | "prices";
 
@@ -255,21 +256,29 @@ export function RecipeCard({ recipe, onUnlock, onUpgrade, unlockLabel = "See my 
 
         {/* Steps */}
         <Section title="Step by step">
-          <m.ol {...blurAnim} className={cn("space-y-4", !unlocked && "locked")}>
-            {recipe.body.steps.map((s, idx) => (
-              <li key={idx} className="flex gap-4">
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink font-mono text-sm text-cream">{idx + 1}</span>
-                <div>
-                  <p className="font-semibold">
-                    {s.title}
-                    {s.minutes > 0 && <span className="ml-2 font-mono text-xs font-normal text-fg-muted">{s.minutes} min</span>}
-                  </p>
-                  <p className="mt-1 text-[15px] leading-relaxed text-fg-muted">{s.text}</p>
-                </div>
-              </li>
-            ))}
-          </m.ol>
-          {!unlocked && <LockedOverlay label={unlockLabel} onClick={onUnlock} sub={`${recipe.body.steps.length} easy steps · ${recipe.time_minutes} min`} />}
+          {unlocked ? (
+            <m.div {...blurAnim}>
+              <CookSteps recipe={recipe} onFavorite={actions?.onFavorite} onShare={actions?.onShare} />
+            </m.div>
+          ) : (
+            <>
+              <ol className="locked space-y-4">
+                {recipe.body.steps.map((s, idx) => (
+                  <li key={idx} className="flex gap-4">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink font-mono text-sm text-cream">{idx + 1}</span>
+                    <div>
+                      <p className="font-semibold">
+                        {s.title}
+                        {s.minutes > 0 && <span className="ml-2 font-mono text-xs font-normal text-fg-muted">{s.minutes} min</span>}
+                      </p>
+                      <p className="mt-1 text-[15px] leading-relaxed text-fg-muted">{s.text}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+              <LockedOverlay label={unlockLabel} onClick={onUnlock} sub={`${recipe.body.steps.length} easy steps · ${recipe.time_minutes} min`} />
+            </>
+          )}
         </Section>
 
         {/* Shopping Saver */}

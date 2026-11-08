@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, m, useReducedMotion, type PanInfo } from "framer-motion";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -38,7 +39,13 @@ export function Sheet({ open, onClose, children, mode = "bottom", width = 480, l
     if (info.offset.y > 120 || info.velocity.y > 600) onClose();
   };
 
-  return (
+  // Rendered at the top of the page so no animated or transformed parent can trap the overlay.
+  const [mounted, setMounted] = React.useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  React.useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+
+  return createPortal(
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0" style={{ zIndex: z }} role="dialog" aria-modal="true" aria-label={label} data-testid={testId}>
@@ -88,6 +95,7 @@ export function Sheet({ open, onClose, children, mode = "bottom", width = 480, l
           </div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

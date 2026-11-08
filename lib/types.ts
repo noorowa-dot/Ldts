@@ -44,6 +44,10 @@ export type RecipeView = RecipeTeaser & {
     macros: boolean; // macros + chef tip
     planName: string | null;
     tier: "none" | "starter" | "pro" | "chef";
+    /** Unlocked with the free account's weekly recipe (not a plan). */
+    freeUnlocked: boolean;
+    /** Free account: can this recipe be unlocked with this week's free recipe? When not, the date the next one is ready. */
+    free: { available: boolean; next: string | null } | null;
   };
 };
 

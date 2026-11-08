@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { getCtx } from "@/lib/recipes";
 import { QUOTAS, track } from "@/lib/kwop";
+import { FREE_LISTS_MONTHLY } from "@/lib/plan-config";
 import { db } from "@/lib/supabase/admin";
 import { pantry, weekMeals } from "@/lib/plan";
 import { shopState } from "@/lib/shop";
@@ -46,9 +47,11 @@ export async function POST(req: Request) {
   // build: the assistant turns the week's meals into one list, in store amounts.
   const { data: prof } = await db().from("profiles").select("answers").eq("id", uid).maybeSingle();
   const answers = ((prof as { answers: Record<string, unknown> } | null)?.answers ?? {}) as Record<string, unknown>;
-  // Value before price: a free account gets its first smart list; after that, lists come with a plan.
-  const freeList = !QUOTAS[c.tier].shopList && !answers.free_list_used;
-  if (!QUOTAS[c.tier].shopList && !freeList) return err("upgrade", "Your free list is used. Smart lists come with a plan.", 403, { feature: "shop" });
+  // Value before price: a free account gets FREE_LISTS_MONTHLY smart list(s) a month; more come with a plan.
+  const month = new Date().toISOString().slice(0, 7);
+  const freeUsed = answers.free_list_month === month ? Number(answers.free_list_count ?? 1) : 0;
+  const freeList = !QUOTAS[c.tier].shopList && freeUsed < FREE_LISTS_MONTHLY;
+  if (!QUOTAS[c.tier].shopList && !freeList) return err("upgrade", "You've used this month's free list. Unlimited lists come with a plan.", 403, { feature: "shop" });
   if (!aiConfigured()) return err("ai_off", "The assistant is warming up. Please try again in a minute.", 503);
   const meals = await weekMeals(uid, week);
   if (!meals.length) return err("no_meals", "Add a meal to your week first.", 400);
@@ -104,7 +107,7 @@ export async function POST(req: Request) {
       );
     await db()
       .from("profiles")
-      .update({ answers: { ...answers, list_builds: { day: today, n: n + 1 }, ...(freeList ? { free_list_used: true } : {}) } } as never)
+      .update({ answers: { ...answers, list_builds: { day: today, n: n + 1 }, ...(freeList ? { free_list_month: month, free_list_count: freeUsed + 1 } : {}) } } as never)
       .eq("id", uid);
     track("feature_used", c.user.email, "shopping_list");
     return json(await shopState(c, week));

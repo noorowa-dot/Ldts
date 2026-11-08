@@ -43,7 +43,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mt-auto rounded-2xl border border-border bg-bg p-4">
           <p className="text-[13px] font-semibold">{me.planName ? `${me.planName} plan` : "Free"}</p>
           <p className="mt-0.5 text-[12px] text-fg-muted">
-            {me.used} of {me.limit} recipes {me.tier === "none" ? "today" : "this month"}
+            {me.used} of {me.limit} {me.tier === "none" ? "previews today" : "recipes this month"}
           </p>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
             <div className="h-full rounded-full bg-olive" style={{ width: `${pct}%` }} />

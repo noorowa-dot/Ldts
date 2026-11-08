@@ -25,7 +25,7 @@ export function Fridge() {
   const left = Math.max(0, me.limit - me.used);
   return (
     <div>
-      <PageTitle title="What's in your fridge?" sub={me.tier === "none" ? `${left} free recipe${left === 1 ? "" : "s"} left today` : `${left} of ${me.limit} recipes left this month`} />
+      <PageTitle title="What's in your fridge?" sub={me.tier === "none" ? `${left} recipe preview${left === 1 ? "" : "s"} left today · 1 full recipe free every week` : `${left} of ${me.limit} recipes left this month`} />
 
       <div className="mb-4 flex flex-wrap gap-2" aria-label="Dietary filters">
         {DIETS.map((d) => {

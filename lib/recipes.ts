@@ -7,8 +7,8 @@ import { getApp, getPlan, QUOTAS, tierOf, type PlanState, type Tier, type KwopPl
 import { getComp, higherTier, tierLabel, type Comp } from "./vouchers";
 import type { Generated, RecipeBody, RecipeTeaser, RecipeView } from "./types";
 
-export const ANON_DAILY = 3;
-export const FREE_DAILY = 3;
+import { ANON_DAILY, FREE_DAILY, FREE_WEEKLY } from "./plan-config";
+export { ANON_DAILY, FREE_DAILY };
 const BUCKET = "fridge-photos";
 
 export type Ctx = {
@@ -182,12 +182,36 @@ export function mask(s: string, seed = 7): string {
   });
 }
 
+const WEEK_MS = 7 * 24 * 3600_000;
+
+/** Free accounts get FREE_WEEKLY full recipes per rolling 7 days. */
+export async function freeStatus(userId: string, recipeId: string) {
+  const { data } = await db().from("free_unlocks").select("recipe_id,created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(20);
+  const rows = (data ?? []) as { recipe_id: string; created_at: string }[];
+  const thisOne = rows.some((r) => r.recipe_id === recipeId);
+  const recent = rows.filter((r) => Date.now() - new Date(r.created_at).getTime() < WEEK_MS);
+  const available = recent.length < FREE_WEEKLY;
+  const oldest = recent[recent.length - 1];
+  const next = available || !oldest ? null : new Date(new Date(oldest.created_at).getTime() + WEEK_MS).toISOString();
+  return { thisOne, available, next };
+}
+
 export async function toView(ctx: Ctx, row: Row): Promise<RecipeView> {
   const { data } = await db().from("recipe_bodies").select("body").eq("recipe_id", row.id).maybeSingle();
   const body = ((data as { body: RecipeBody } | null)?.body ?? { ingredients: [], steps: [], shopping: [], tip: "", macros: { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 } }) as RecipeBody;
   const q = QUOTAS[ctx.tier];
-  const unlocked = ctx.tier !== "none" && Boolean(ctx.user && row.user_id === ctx.user.id);
-  const access = { unlocked, shopping: unlocked && q.shopping, macros: unlocked && q.macros, planName: planLabel(ctx), tier: ctx.tier };
+  const mine = Boolean(ctx.user && row.user_id === ctx.user.id);
+  const free = mine && ctx.tier === "none" ? await freeStatus(ctx.user!.id, row.id) : null;
+  const unlocked = mine && (ctx.tier !== "none" || Boolean(free?.thisOne));
+  const access = {
+    unlocked,
+    shopping: unlocked && q.shopping,
+    macros: unlocked && q.macros,
+    planName: planLabel(ctx),
+    tier: ctx.tier,
+    freeUnlocked: Boolean(free?.thisOne),
+    free: free && !free.thisOne ? { available: free.available, next: free.next } : null,
+  };
   const seed = parseInt(row.id.slice(0, 6), 16) % 1000;
   const view: RecipeBody = {
     ingredients: body.ingredients.map((i) =>

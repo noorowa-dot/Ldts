@@ -167,8 +167,10 @@ export async function connect(url: string) {
   return call<{ ok?: boolean; error?: string }>("/connect", { method: "POST", body: JSON.stringify({ url }) });
 }
 
-// ---------- quotas, per plan, in Platepal's units ----------
-export type Tier = "none" | "starter" | "pro" | "chef";
+// ---------- quotas, per plan (lib/plan-config.ts is the single source of truth) ----------
+import { QUOTAS, TAGS, unlockLines, type Tier } from "./plan-config";
+export { QUOTAS, TAGS, unlockLines };
+export type { Tier };
 
 /** Plans are matched by their rank in price order (cheapest = starter). Names/ids come from Kwop. */
 export function tierOf(plan: PlanState["plan"], plans: KwopPlan[]): Tier {
@@ -184,29 +186,3 @@ export function tierOf(plan: PlanState["plan"], plans: KwopPlan[]): Tier {
   const tiers: Tier[] = sorted.length >= 3 ? ["starter", "pro", "chef"] : sorted.length === 2 ? ["starter", "chef"] : ["pro"];
   return tiers[Math.min(idx, tiers.length - 1)] ?? "starter";
 }
-
-export const QUOTAS: Record<
-  Tier,
-  { recipes: number; saved: number; diets: "all" | "vegetarian" | "none"; shopping: boolean; macros: boolean; remix: number; calorieTarget: boolean; planMeals: number; shopList: boolean; priceCheck: boolean }
-> = {
-  none: { recipes: 0, saved: 3, diets: "none", shopping: false, macros: false, remix: 0, calorieTarget: false, planMeals: 3, shopList: false, priceCheck: false },
-  starter: { recipes: 20, saved: 25, diets: "vegetarian", shopping: false, macros: false, remix: 0, calorieTarget: false, planMeals: 3, shopList: true, priceCheck: false },
-  pro: { recipes: 60, saved: 100000, diets: "all", shopping: true, macros: false, remix: 3, calorieTarget: false, planMeals: 14, shopList: true, priceCheck: true },
-  chef: { recipes: 150, saved: 100000, diets: "all", shopping: true, macros: true, remix: 10, calorieTarget: true, planMeals: 14, shopList: true, priceCheck: true },
-};
-
-/** "What you unlock" lines for a tier. */
-export function unlockLines(t: Tier): string[] {
-  const q = QUOTAS[t];
-  const lines = [`${q.recipes} fridge recipes a month`, "Every step, every amount, in plain words"];
-  if (t === "starter") lines.push("Plan 3 dinners a week + one smart shopping list", "Vegetarian filter · save up to 25 recipes");
-  if (t === "pro") lines.push("Plan lunch + dinner all week, one smart shopping list", "Price check: see which store is cheapest for your list", "All 6 dietary filters + Shopping Saver", "3 remixes per recipe · unlimited favorites");
-  if (t === "chef") lines.push("Macros per serving + a calorie target", "Plan the whole week + price check across your stores", "All 6 dietary filters + Shopping Saver + chef's tips", "10 remixes per recipe · unlimited favorites");
-  return lines;
-}
-
-export const TAGS: Record<Exclude<Tier, "none">, string> = {
-  starter: "For a few rescue dinners a week",
-  pro: "For people who cook most nights",
-  chef: "For food lovers who cook every day",
-};

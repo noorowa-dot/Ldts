@@ -45,7 +45,7 @@ export function PricingClient() {
 
   return (
     <main className="min-h-[100dvh] bg-bg">
-      <div className="mx-auto max-w-[520px]">
+      <div className="mx-auto max-w-[600px]">
         <a href="/app" className="inline-flex items-center gap-1.5 px-5 pt-5 text-[14px] font-semibold text-fg-muted hover:text-fg">
           <ArrowLeft className="h-4 w-4" /> Back to my kitchen
         </a>
@@ -57,6 +57,7 @@ export function PricingClient() {
           busy={busy}
           notice={notice}
           onVoucher={(r) => setFilm({ name: r.label, lines: r.unlock })}
+          tableOpen
         />
       </div>
       <Sheet open={!!target} onClose={() => { setTarget(null); setSession(null); }} label="Secure checkout" testId="checkout" width={520}>

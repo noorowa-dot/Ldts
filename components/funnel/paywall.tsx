@@ -4,6 +4,8 @@ import { AnimatePresence, m, useReducedMotion } from "framer-motion";
 import { Check, ChevronDown, CreditCard, Loader2, ShieldCheck, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VoucherField, type VoucherOk } from "./voucher-field";
+import { PlanTable } from "./plan-table";
+import { Gift } from "lucide-react";
 
 import { usePlans } from "./plans";
 export { usePlans };
@@ -34,10 +36,16 @@ type ContentProps = {
   sticky?: boolean;
   /** A voucher was applied: free access, no card. */
   onVoucher?: (r: VoucherOk) => void;
+  /** Free account: this week's free recipe (available now, or the date the next one is ready). */
+  free?: { available: boolean; next: string | null; onUse: () => Promise<void> } | null;
+  /** Show the "Compare all plans" table open (the /pricing page). */
+  tableOpen?: boolean;
 };
 
 /** The paywall body, shared by the sheet over the recipe and the /pricing page. */
-export function PaywallContent({ plans, title, personal, onContinue, busy, notice, excludeId, scrollRoot, sticky = true, onVoucher }: ContentProps) {
+export function PaywallContent({ plans, title, personal, onContinue, busy, notice, excludeId, scrollRoot, sticky = true, onVoucher, free, tableOpen = false }: ContentProps) {
+  const [showTable, setShowTable] = React.useState(tableOpen);
+  const [freeBusy, setFreeBusy] = React.useState(false);
   const [period, setPeriod] = React.useState<"month" | "year">("month");
   const list = React.useMemo(() => (plans ?? []).filter((p) => p.id !== excludeId), [plans, excludeId]);
   const [selected, setSelected] = React.useState<number | null>(null);
@@ -165,6 +173,33 @@ export function PaywallContent({ plans, title, personal, onContinue, busy, notic
           {cta}
         </button>
         <p className="mt-2.5 text-center text-[13px] text-fg-muted">{due} · Cancel anytime</p>
+        {free && (
+          <div className="mt-4 rounded-2xl bg-olive-soft px-4 py-3 text-center" data-testid="free-weekly">
+            {free.available ? (
+              <>
+                <button
+                  type="button"
+                  disabled={freeBusy}
+                  onClick={async () => {
+                    setFreeBusy(true);
+                    await free.onUse();
+                    setFreeBusy(false);
+                  }}
+                  className="inline-flex cursor-pointer items-center gap-2 text-[15px] font-semibold text-olive underline-offset-4 hover:underline disabled:opacity-60"
+                  data-testid="use-free-recipe"
+                >
+                  {freeBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Gift className="h-4 w-4" />} Not today? Use your free recipe of the week
+                </button>
+                <p className="mt-0.5 text-[12px] text-olive/80">Free accounts get 1 full recipe every week. No card.</p>
+              </>
+            ) : (
+              <p className="text-[13px] font-medium text-olive">
+                <Gift className="mr-1 inline h-4 w-4" /> Your next free recipe is ready{" "}
+                {free.next ? new Date(free.next).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }) : "next week"}.
+              </p>
+            )}
+          </div>
+        )}
         {notice && <p className="mt-3 rounded-xl bg-butter-soft px-4 py-3 text-center text-[14px] font-medium text-[#5b430a]" data-testid="paywall-notice">{notice}</p>}
       </div>
 
@@ -191,6 +226,23 @@ export function PaywallContent({ plans, title, personal, onContinue, busy, notic
           </ul>
         </div>
       )}
+
+      <div className="mt-6">
+        {!showTable ? (
+          <button type="button" onClick={() => setShowTable(true)} className="flex w-full cursor-pointer items-center justify-between rounded-2xl border border-border bg-surface px-4 py-3 text-left text-[15px] font-semibold hover:bg-surface-2" data-testid="compare-plans">
+            Compare all plans
+            <ChevronDown className="h-5 w-5" />
+          </button>
+        ) : (
+          <>
+            <p className="mb-2 text-[15px] font-semibold">Compare all plans</p>
+            <PlanTable
+              highlight={sel?.tier ?? null}
+              prices={Object.fromEntries(list.map((p) => [p.tier, period === "year" && p.yearly ? `${money(p.yearly.price_cents)}/yr` : `${money(p.price_cents)}/mo`]))}
+            />
+          </>
+        )}
+      </div>
 
       <div className="mt-8">
         {FAQ.map((f, i) => (

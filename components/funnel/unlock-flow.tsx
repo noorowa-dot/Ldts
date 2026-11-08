@@ -96,6 +96,19 @@ export function UnlockProvider({ children, recipe, signedIn, tier, currentPlanId
     [onUnlocked]
   );
 
+  // Free account: unlock this recipe with the free recipe of the week.
+  const claimFreeRecipe = React.useCallback(async () => {
+    if (!recipe) return;
+    const r = await fetch(`/api/recipes/${recipe.id}/free`, { method: "POST" });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      setNotice(d.message || "Couldn't unlock it. Try again.");
+      return;
+    }
+    setStep(null);
+    await onUnlocked?.({ planName: "Free recipe of the week", tier: "none" });
+  }, [recipe, onUnlocked]);
+
   const openPaywall = React.useCallback(() => {
     setNotice(null);
     setStep("paywall");
@@ -221,7 +234,17 @@ export function UnlockProvider({ children, recipe, signedIn, tier, currentPlanId
 
       {/* 2. Paywall sheet over the recipe */}
       <Sheet open={step === "paywall"} onClose={() => setStep(null)} mode="full" label="Choose your plan" testId="paywall-sheet" scrollRef={paywallScroll}>
-        <PaywallContent plans={plans} title={title} personal={personal} onContinue={(p, per) => startCheckout(p, per)} busy={busy} notice={notice} scrollRoot={paywallScroll} onVoucher={voucherUnlocked} />
+        <PaywallContent
+          plans={plans}
+          title={title}
+          personal={personal}
+          onContinue={(p, per) => startCheckout(p, per)}
+          busy={busy}
+          notice={notice}
+          scrollRoot={paywallScroll}
+          onVoucher={voucherUnlocked}
+          free={recipe?.access.free ? { ...recipe.access.free, onUse: claimFreeRecipe } : null}
+        />
       </Sheet>
 
       {/* 3. Checkout sheet over the paywall */}
