@@ -120,7 +120,7 @@ async function run(parts: object[], o: CookOptions): Promise<Generated> {
             responseJsonSchema: schema,
             temperature: o.avoidTitles?.length ? 1 : 0.7,
             ...(thinking ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } } : {}),
-            httpOptions: { timeout: Math.min(i === 0 ? 45_000 : 30_000, left), retryOptions: { attempts: 1 } },
+            httpOptions: { timeout: Math.min(i === 0 ? 15_000 : 30_000, left), retryOptions: { attempts: 1 } },
           },
         });
         console.log(`[ai] ${model} answered in ${Date.now() - t0} ms`);
@@ -154,20 +154,37 @@ function str(s: unknown, max: number) {
   return String(s ?? "").trim().slice(0, max);
 }
 
+/** "dozen eggs" → "Eggs", "lemon" → "Lemon". */
+function nice(name: string) {
+  const n = name.replace(/^(a |an |some |dozen |half (a )?|one |two |three )/i, "").trim();
+  return n ? n[0].toUpperCase() + n.slice(1) : name;
+}
+function dedupe<T extends { name: string }>(xs: T[]) {
+  const seen = new Set<string>();
+  return xs.filter((x) => {
+    const k = x.name.toLowerCase().replace(/e?s$/, "");
+    if (!x.name || seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
 function sanitize(d: Record<string, unknown>): Generated {
   const arr = (v: unknown) => (Array.isArray(v) ? v : []);
   return {
-    found: arr(d.found).slice(0, 14).map((f: Record<string, unknown>) => ({
-      name: str(f.name, 40),
-      x: clamp(f.x, 4, 96, 50),
-      y: clamp(f.y, 6, 94, 50),
-    })),
+    found: dedupe(
+      arr(d.found).map((f: Record<string, unknown>) => ({
+        name: nice(str(f.name, 40)),
+        x: clamp(f.x, 4, 96, 50),
+        y: clamp(f.y, 6, 94, 50),
+      }))
+    ).slice(0, 14),
     title: str(d.title, 70) || "Fridge Rescue Skillet",
     intro: str(d.intro, 200),
     time_minutes: clamp(d.time_minutes, 5, 180, 25),
     servings: clamp(d.servings, 1, 8, 2),
     difficulty: (["Easy", "Medium", "Hard"].includes(d.difficulty as string) ? d.difficulty : "Easy") as Generated["difficulty"],
-    uses: arr(d.uses).slice(0, 14).map((s) => str(s, 40)),
+    uses: Array.from(new Set(arr(d.uses).map((s) => nice(str(s, 40))))).slice(0, 14),
     ingredients: arr(d.ingredients).slice(0, 20).map((i: Record<string, unknown>) => ({
       item: str(i.item, 60),
       amount: str(i.amount, 40),
