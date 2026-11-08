@@ -297,6 +297,18 @@ every table, SQL in `supabase/migrations`) · Vercel (free) · Gemini through `l
 - `profiles.answers` is server-only (column update revoked): it holds `free_list_used` and daily list-build counters.
 - Tests: `tests/e2e.spec.ts` (funnel) + `tests/week.spec.ts` (plan → list → price check paywall), green on production.
 
+## Chef's tips and heat level (added Nov 8)
+- Recipes now carry `tips`: 3-5 substantial tips (technique + why, swap, flavor boost, make-ahead/storage, serving), each
+  with a short title; `tip` keeps the first for older code. Shown in "Chef's tips & macros" (Chef plan; scrambled otherwise).
+- Heat level `mild | medium | hot | extra` (`HEAT_RULES` in lib/ai.ts). It never changes which dish is chosen, only the
+  heat sources (pepper flakes, cayenne, hot sauce, chilies), their amounts and the steps. A small jar of a common heat
+  source can be assumed in the pantry.
+  - Default for new recipes: Fridge page picker + Settings (`profiles.heat`); sent with each scan, used for remix, fix the
+    ingredients and planned dishes. Stored per recipe in `recipes.heat` (shown as a chip).
+  - On an unlocked recipe: "Heat level" row → `POST /api/recipes/[id]/heat` → `adjustHeat()` rewrites the same recipe in
+    place (title, main ingredients, servings kept). Free (no recipe used), 20 changes/day/account. Live: ~5 s.
+  - Available to every account (plan table row "Heat level"); changing an existing recipe needs it unlocked.
+
 ## Vouchers (free access without paying) + creator network
 - Tables `vouchers` (code **hash** only, tier, optional email lock, max uses, optional months / expiry, note, `creator`,
   `k` = the creator's Kwop link code; RLS on, no policies), `voucher_redemptions` (one per account per voucher) and
