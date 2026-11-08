@@ -2,6 +2,7 @@
 import * as React from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Camera, Check, ImagePlus, RotateCcw, Lock, ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
 import type { RecipeView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ProgressRing } from "@/components/ui/progress-ring";
@@ -41,10 +42,22 @@ async function compress(file: File): Promise<Blob> {
   }
 }
 
-export function TryFirst({ signedIn = false, initialRecipe = null, autoUnlock = false }: { signedIn?: boolean; initialRecipe?: RecipeView | null; autoUnlock?: boolean }) {
+export type EngineOptions = {
+  /** Dietary filters to send with each scan (the server keeps only what the plan includes). */
+  diet?: string[];
+  /** Called with each new recipe (the app opens the full recipe page when it is unlocked). */
+  onResult?: (r: RecipeView) => void;
+  /** Show "Type what you have" next to the photo. */
+  allowList?: boolean;
+  /** Hide the example shelves (the app shows them smaller). */
+  inApp?: boolean;
+};
+
+export function TryFirst({ signedIn = false, initialRecipe = null, autoUnlock = false, options = {} }: { signedIn?: boolean; initialRecipe?: RecipeView | null; autoUnlock?: boolean; options?: EngineOptions }) {
   const [recipe, setRecipe] = React.useState<RecipeView | null>(initialRecipe);
   const [justUnlocked, setJustUnlocked] = React.useState(false);
   const [authed, setAuthed] = React.useState(signedIn);
+  const router = useRouter();
 
   const refetch = React.useCallback(async (id: string) => {
     const r = await fetch(`/api/recipes/${id}`, { cache: "no-store" });
@@ -65,6 +78,7 @@ export function TryFirst({ signedIn = false, initialRecipe = null, autoUnlock = 
       onAuthed={async () => {
         setAuthed(true);
         if (recipe) await refetch(recipe.id);
+        router.refresh();
       }}
       onUnlocked={async () => {
         if (recipe) {
@@ -73,12 +87,14 @@ export function TryFirst({ signedIn = false, initialRecipe = null, autoUnlock = 
         }
       }}
     >
-      <Engine recipe={recipe} setRecipe={setRecipe} justUnlocked={justUnlocked} autoUnlock={autoUnlock} />
+      <Engine recipe={recipe} setRecipe={setRecipe} justUnlocked={justUnlocked} autoUnlock={autoUnlock} options={options} />
     </UnlockProvider>
   );
 }
 
-function Engine({ recipe, setRecipe, justUnlocked, autoUnlock }: { recipe: RecipeView | null; setRecipe: (r: RecipeView) => void; justUnlocked: boolean; autoUnlock: boolean }) {
+function Engine({ recipe, setRecipe, justUnlocked, autoUnlock, options }: { recipe: RecipeView | null; setRecipe: (r: RecipeView) => void; justUnlocked: boolean; autoUnlock: boolean; options: EngineOptions }) {
+  const [listOpen, setListOpen] = React.useState(false);
+  const [list, setList] = React.useState("");
   const { openUnlock, openUpgrade, plans } = useUnlock();
   const featured = plans?.find((p) => p.featured) ?? plans?.[0];
   const reduce = useReducedMotion();
@@ -92,12 +108,16 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock }: { recipe: Recip
   const autoOpened = React.useRef(false);
 
   React.useEffect(() => {
+    // Keep the shown recipe in sync after a refetch (sign-up, payment).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (recipe && phase.kind === "done" && phase.recipe !== recipe) setPhase({ kind: "done", recipe });
   }, [recipe, phase]);
 
   React.useEffect(() => {
     try {
       const raw = localStorage.getItem("pp_last");
+      // Browser-only storage, read after mount.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (raw && !recipe) setLast(JSON.parse(raw));
     } catch {}
   }, [recipe]);
@@ -112,6 +132,8 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock }: { recipe: Recip
   // Progress: smooth to 99 %, holds there until the real work is done.
   React.useEffect(() => {
     if (phase.kind !== "working") return;
+    // A new piece of work starts at 0 %.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPct(0);
     const start = performance.now();
     let raf = 0;
@@ -126,9 +148,12 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock }: { recipe: Recip
   }, [phase.kind]);
 
   async function run(body: FormData, preview: string) {
+    if (options.diet?.length && !body.has("diet")) body.append("diet", options.diet.join(","));
     setPhase({ kind: "working", preview });
     setStamp(false);
     topRef.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+    // Timing inside an event handler, not during render.
+    // eslint-disable-next-line react-hooks/purity
     const started = Date.now();
     const attempt = async () => {
       const r = await fetch("/api/scan", { method: "POST", body });
@@ -138,6 +163,7 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock }: { recipe: Recip
     try {
       let { r, d } = await attempt();
       if (!r.ok && r.status >= 500 && d.error !== "ai_off" && d.error !== "not_ready") ({ r, d } = await attempt());
+      // eslint-disable-next-line react-hooks/purity
       const wait = Math.max(0, 3200 - (Date.now() - started));
       await new Promise((res) => setTimeout(res, wait));
       if (r.status === 429) return setPhase({ kind: "limit", message: d.message, reason: d.error });
@@ -151,6 +177,7 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock }: { recipe: Recip
       await new Promise((res) => setTimeout(res, reduce ? 200 : 1100));
       setRecipe(rec);
       setPhase({ kind: "done", recipe: rec });
+      options.onResult?.(rec);
       if (location.pathname === "/") history.replaceState(null, "", `/r/${rec.id}`);
       requestAnimationFrame(() => topRef.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }));
     } catch {
@@ -166,6 +193,15 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock }: { recipe: Recip
     const fd = new FormData();
     fd.append("photo", new File([blob], "fridge.jpg", { type: blob.type || "image/jpeg" }));
     run(fd, preview);
+  }
+
+  function onList(e: React.FormEvent) {
+    e.preventDefault();
+    const items = list.split(/[,\n]/).map((x) => x.trim()).filter(Boolean);
+    if (items.length < 2) return;
+    const fd = new FormData();
+    fd.append("list", items.join(","));
+    run(fd, "");
   }
 
   function onExample(id: string) {
@@ -236,7 +272,30 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock }: { recipe: Recip
                 </button>
               ))}
             </div>
-            {last && (
+            {options.allowList && (
+              <div className="mt-4 text-center">
+                {!listOpen ? (
+                  <button type="button" onClick={() => setListOpen(true)} className="cursor-pointer text-[14px] font-semibold text-cream/80 underline-offset-4 hover:underline" data-testid="open-list">
+                    Or type what you have
+                  </button>
+                ) : (
+                  <form onSubmit={onList} className="mx-auto flex max-w-xl flex-col gap-2 sm:flex-row">
+                    <input
+                      autoFocus
+                      value={list}
+                      onChange={(e) => setList(e.target.value)}
+                      placeholder="eggs, spinach, feta, lemon"
+                      className="h-12 flex-1 rounded-full border border-cream/20 bg-white/[.06] px-5 text-[16px] text-cream placeholder:text-cream/40 outline-none focus:border-lime"
+                      data-testid="list-input"
+                    />
+                    <button type="submit" disabled={list.split(/[,\n]/).filter((x) => x.trim()).length < 2} className="h-12 cursor-pointer rounded-full bg-tomato px-6 font-semibold text-white disabled:opacity-50">
+                      Make my recipe
+                    </button>
+                  </form>
+                )}
+              </div>
+            )}
+            {last && !options.inApp && (
               <a href={`/r/${last.id}`} className="mx-auto mt-4 flex w-fit items-center gap-2 rounded-full bg-butter px-4 py-2 text-[14px] font-semibold text-ink transition hover:brightness-105">
                 Your {last.title} is waiting <ArrowRight className="h-4 w-4" />
               </a>
@@ -247,8 +306,12 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock }: { recipe: Recip
         {phase.kind === "working" && (
           <motion.div key="working" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="overflow-hidden rounded-[28px] bg-ink-2 ring-1 ring-white/10" data-testid="working">
             <div className="relative aspect-[4/3] sm:aspect-[16/9]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={phase.preview} alt="Your photo being scanned" className="h-full w-full object-cover opacity-80" />
+              {phase.preview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={phase.preview} alt="Your photo being scanned" className="h-full w-full object-cover opacity-80" />
+              ) : (
+                <div className="h-full w-full bg-[radial-gradient(circle_at_30%_30%,#3a3226,#17150f)]" />
+              )}
               <div className="absolute inset-0 bg-ink/30" />
               <ScanCorners tight />
               {!reduce && <div className="scan-line absolute inset-x-6 h-[3px] rounded-full bg-lime shadow-[0_0_24px_6px_rgb(200_255_61/.55)]" />}
@@ -305,7 +368,7 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock }: { recipe: Recip
                   <span aria-hidden className="btn-glow absolute -inset-2 -z-10 rounded-full bg-tomato/45 blur-xl" />
                   <Lock className="h-5 w-5" /> See my full recipe
                 </button>
-                <button type="button" onClick={reset} className="inline-flex cursor-pointer items-center gap-1.5 text-[14px] font-medium text-cream/70 hover:text-cream">
+                <button type="button" onClick={reset} className="inline-flex cursor-pointer items-center gap-1.5 text-[14px] font-medium text-cream/70 hover:text-cream" data-testid="try-another">
                   <RotateCcw className="h-4 w-4" /> Try another photo
                 </button>
               </div>

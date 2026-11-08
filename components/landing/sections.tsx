@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import * as React from "react";
 import { motion, useReducedMotion, useScroll, useMotionValueEvent, AnimatePresence } from "framer-motion";
 import { ArrowRight, Camera, Check, ChefHat, Clock, Heart, Leaf, ShoppingBasket, Sparkles, Trash2, X, Lightbulb, ListChecks } from "lucide-react";
@@ -27,9 +28,9 @@ export function TopBar() {
           scrolled ? "bg-ink/80" : "bg-ink/40"
         )}
       >
-        <a href="/" aria-label="Platepal home" className="shrink-0">
+        <Link href="/" aria-label="Platepal home" className="shrink-0">
           <Logo dark className="[&>span:last-child]:text-[19px] sm:[&>span:last-child]:text-[21px]" />
-        </a>
+        </Link>
         <div className="hidden items-center gap-1 text-[14px] font-medium text-cream/70 md:flex">
           <a href="#how" className="rounded-full px-3 py-2 hover:text-cream">How it works</a>
           <a href="#features" className="rounded-full px-3 py-2 hover:text-cream">Features</a>

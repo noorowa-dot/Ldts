@@ -24,10 +24,43 @@ type Props = {
   className?: string;
 };
 
+type Placed = { i: number; side: "left" | "right" | null };
+
+function placeLabels(found: { name: string; x: number; y: number }[], w: number, h: number): Placed[] {
+  const boxes: { x1: number; y1: number; x2: number; y2: number }[] = [];
+  const fs = w < 500 ? 6.4 : 7;
+  return found.map((f, i) => {
+    const cx = (f.x / 100) * w;
+    const cy = (f.y / 100) * h;
+    const lw = Math.min(f.name.length * fs + 30, w * 0.45);
+    const lh = 24;
+    for (const side of [cx > w * 0.55 ? "left" : "right", cx > w * 0.55 ? "right" : "left"] as const) {
+      const x1 = side === "right" ? cx + 10 : cx - 10 - lw;
+      const box = { x1, y1: cy - lh / 2, x2: x1 + lw, y2: cy + lh / 2 };
+      if (box.x1 < 4 || box.x2 > w - 4 || box.y1 < 4 || box.y2 > h - 4) continue;
+      if (boxes.some((b) => !(box.x2 + 4 < b.x1 || box.x1 - 4 > b.x2 || box.y2 + 3 < b.y1 || box.y1 - 3 > b.y2))) continue;
+      boxes.push(box);
+      return { i, side };
+    }
+    return { i, side: null };
+  });
+}
+
 export function PhotoWithStickers({ recipe, className, live = false }: { recipe: Pick<RecipeView, "photo_url" | "found" | "title">; className?: string; live?: boolean }) {
   const reduce = useReducedMotion();
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [size, setSize] = React.useState<{ w: number; h: number } | null>(null);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setSize({ w: e.contentRect.width, h: e.contentRect.height }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const found = recipe.found.slice(0, 10);
+  const placed = size ? placeLabels(found, size.w, size.h) : found.map((_, i) => ({ i, side: null }));
   return (
-    <div className={cn("relative overflow-hidden bg-ink-3", className)}>
+    <div ref={ref} className={cn("relative overflow-hidden bg-ink-3", className)}>
       {recipe.photo_url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={recipe.photo_url} alt={`Your fridge photo for ${recipe.title}`} className="h-full w-full object-cover" />
@@ -36,22 +69,28 @@ export function PhotoWithStickers({ recipe, className, live = false }: { recipe:
           <ChefHat className="h-12 w-12 text-cream/30" />
         </div>
       )}
-      <div className="absolute inset-0 bg-gradient-to-t from-ink/55 via-transparent to-transparent" />
-      {recipe.found.slice(0, 8).map((f, i) => (
-        <motion.div
-          key={f.name + i}
-          className="absolute"
-          style={{ left: `${f.x}%`, top: `${f.y}%` }}
-          initial={live && !reduce ? { opacity: 0, scale: 0.6 } : false}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: live ? 0.08 * i : 0, type: "spring", stiffness: 400, damping: 22 }}
-        >
-          <span className="absolute -left-1.5 -top-1.5 h-3 w-3 rounded-full border-2 border-white bg-lime shadow" />
-          <Sticker tone={toneCycle[i % 3]} className="ml-3 -mt-3 text-[11px] sm:text-[12px]">
-            {f.name}
-          </Sticker>
-        </motion.div>
-      ))}
+      <div className="absolute inset-0 bg-gradient-to-t from-ink/45 via-transparent to-transparent" />
+      {recipe.photo_url &&
+        found.map((f, i) => {
+          const side = placed[i]?.side;
+          return (
+            <motion.div
+              key={f.name + i}
+              className="absolute"
+              style={{ left: `${f.x}%`, top: `${f.y}%` }}
+              initial={live && !reduce ? { opacity: 0, scale: 0.6 } : false}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: live ? 0.08 * i : 0, type: "spring", stiffness: 400, damping: 22 }}
+            >
+              <span className="absolute -left-1.5 -top-1.5 h-3 w-3 rounded-full border-2 border-white bg-lime shadow" />
+              {side && (
+                <Sticker tone={toneCycle[i % 3]} className={cn("absolute top-0 -translate-y-1/2 text-[11px] sm:text-[12px]", side === "right" ? "left-2.5" : "right-2.5")}>
+                  {f.name}
+                </Sticker>
+              )}
+            </motion.div>
+          );
+        })}
     </div>
   );
 }
@@ -90,7 +129,14 @@ export function RecipeCard({ recipe, onUnlock, onUpgrade, unlockLabel = "See my 
             We found {recipe.found.length} ingredient{recipe.found.length === 1 ? "" : "s"} in your fridge
           </span>
         </div>
-        <h2 className="mt-2 text-[30px] font-semibold leading-[1.05] tracking-[-0.03em] sm:text-[40px]" data-testid="recipe-title">
+        <div className="mt-2.5 flex flex-wrap gap-1.5" data-testid="found-list">
+          {recipe.found.map((f, i) => (
+            <Sticker key={f.name + i} tone={toneCycle[i % 3]} className="text-[12px]">
+              {f.name}
+            </Sticker>
+          ))}
+        </div>
+        <h2 className="mt-4 text-[30px] font-semibold leading-[1.05] tracking-[-0.03em] sm:text-[40px]" data-testid="recipe-title">
           {recipe.title}
         </h2>
         {recipe.intro && <p className="mt-2 text-[16px] leading-relaxed text-fg-muted">{recipe.intro}</p>}
@@ -103,7 +149,7 @@ export function RecipeCard({ recipe, onUnlock, onUpgrade, unlockLabel = "See my 
             Uses {usesCount} of your {recipe.found.length}
           </Meta>
           {recipe.diet.map((d) => (
-            <Meta key={d} className="bg-butter-soft text-[#7a5a0a]">{d}</Meta>
+            <Meta key={d} className="bg-butter-soft capitalize text-[#7a5a0a]">{d}</Meta>
           ))}
         </div>
 
@@ -224,7 +270,7 @@ export function RecipeCard({ recipe, onUnlock, onUpgrade, unlockLabel = "See my 
 
 function Meta({ children, icon, className }: { children: React.ReactNode; icon?: React.ReactNode; className?: string }) {
   return (
-    <span className={cn("inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1.5 capitalize", className)}>
+    <span className={cn("inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1.5", className)}>
       {icon}
       {children}
     </span>

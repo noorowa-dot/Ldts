@@ -85,7 +85,7 @@ export function PaywallContent({ plans, title, personal, onContinue, busy, notic
   const due = sel ? (period === "year" && sel.yearly ? `${money(sel.yearly.price_cents)} due today, then every year` : `${money(sel.price_cents)} due today, then every month`) : "";
   const cta = sel ? `Continue with ${sel.name}` : "Continue";
 
-  const Plans = ({ testPrefix }: { testPrefix: string }) => (
+  const renderPlans = (testPrefix: string) => (
     <div className="space-y-3" role="radiogroup" aria-label="Plans">
       {list.map((p) => {
         const active = sel?.id === p.id;
@@ -173,7 +173,7 @@ export function PaywallContent({ plans, title, personal, onContinue, busy, notic
       </div>
 
       <div className="mt-4">
-        <Plans testPrefix="plan" />
+        {renderPlans("plan")}
       </div>
 
       <div ref={ctaRef} className="mt-6">
@@ -236,7 +236,7 @@ export function PaywallContent({ plans, title, personal, onContinue, busy, notic
       <div className="mt-10">
         <p className="font-serif text-[22px] font-semibold tracking-[-0.02em]">Pick up where you left off</p>
         <div className="mt-4">
-          <Plans testPrefix="plan-bottom" />
+          {renderPlans("plan-bottom")}
         </div>
         <button
           type="button"
@@ -313,8 +313,6 @@ export function useWhopCheckout(session: Session | null, onPaid: (ref: string) =
   const [failed, setFailed] = React.useState(false);
   React.useEffect(() => {
     if (!session) return;
-    setReady(false);
-    setFailed(false);
     if (!session.embed) {
       if (session.fallback_url) location.href = session.fallback_url;
       return;
@@ -409,6 +407,8 @@ export function UnlockFilm({ open, planName, lines, onDone }: { open: boolean; p
   const [scene, setScene] = React.useState(0);
   React.useEffect(() => {
     if (!open) return;
+    // Restart the film each time it opens.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setScene(0);
     const ts = [setTimeout(() => setScene(1), 1600), setTimeout(() => setScene(2), 3600), setTimeout(onDone, 5200)];
     return () => ts.forEach(clearTimeout);
