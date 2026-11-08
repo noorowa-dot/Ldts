@@ -98,52 +98,79 @@ function instructions(o: CookOptions) {
   return lines.join("\n");
 }
 
-const isBusy = (e: unknown) => /\b(503|429)\b|UNAVAILABLE|RESOURCE_EXHAUSTED|high demand/i.test(String((e as Error)?.message ?? e));
+const HEDGE_MS = Number(process.env.GEMINI_HEDGE_MS || 6000);
 
-async function run(parts: object[], o: CookOptions): Promise<Generated> {
-  let lastErr: unknown;
-  const started = Date.now();
-  for (const [i, model] of MODELS.entries()) {
-    // The newest model gets a second chance after a short pause when Google says it is busy.
-    let thinking = true;
-    for (let attempt = 0; attempt < (i === 0 ? 2 : 1) + 1; attempt++) {
-      const left = 100_000 - (Date.now() - started);
-      if (left < 8_000) break;
-      const t0 = Date.now();
-      try {
-        const res = await ai().models.generateContent({
-          model,
-          contents: [{ role: "user", parts }],
-          config: {
-            systemInstruction: instructions(o),
-            responseMimeType: "application/json",
-            responseJsonSchema: schema,
-            temperature: o.avoidTitles?.length ? 1 : 0.7,
-            ...(thinking ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } } : {}),
-            httpOptions: { timeout: Math.min(i === 0 ? 15_000 : 30_000, left), retryOptions: { attempts: 1 } },
-          },
-        });
-        console.log(`[ai] ${model} answered in ${Date.now() - t0} ms`);
-        const data = JSON.parse(res.text ?? "{}");
-        if (data.no_food || !data.found?.length) throw new AiError("no_food", "We couldn't spot any food in that photo.");
-        return sanitize(data);
-      } catch (e) {
-        if (e instanceof AiError) throw e;
-        lastErr = e;
-        console.error(`[ai] ${model} failed after ${Date.now() - t0} ms:`, (e as Error)?.message?.slice(0, 300));
-        if (thinking && /thinking/i.test(String((e as Error)?.message))) {
-          thinking = false; // this model has no thinking levels: ask again without it
-          continue;
-        }
-        if (attempt === 0 && i === 0 && isBusy(e)) {
-          await new Promise((r) => setTimeout(r, 1500));
-          continue;
-        }
-        break;
+async function callModel(model: string, parts: object[], o: CookOptions, timeout: number, signal: AbortSignal): Promise<Generated> {
+  let thinking = true;
+  for (;;) {
+    const t0 = Date.now();
+    try {
+      const res = await ai().models.generateContent({
+        model,
+        contents: [{ role: "user", parts }],
+        config: {
+          systemInstruction: instructions(o),
+          responseMimeType: "application/json",
+          responseJsonSchema: schema,
+          temperature: o.avoidTitles?.length ? 1 : 0.7,
+          ...(thinking ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } } : {}),
+          abortSignal: signal,
+          httpOptions: { timeout, retryOptions: { attempts: 1 } },
+        },
+      });
+      console.log(`[ai] ${model} answered in ${Date.now() - t0} ms`);
+      const data = JSON.parse(res.text ?? "{}");
+      if (data.no_food || !data.found?.length) throw new AiError("no_food", "We couldn't spot any food in that photo.");
+      return sanitize(data);
+    } catch (e) {
+      if (e instanceof AiError) throw e;
+      if (thinking && /thinking/i.test(String((e as Error)?.message))) {
+        thinking = false; // this model has no thinking levels: ask again without it
+        continue;
       }
+      if (!signal.aborted) console.error(`[ai] ${model} failed after ${Date.now() - t0} ms:`, (e as Error)?.message?.slice(0, 300));
+      throw e;
     }
   }
-  throw new AiError("failed", (lastErr as Error)?.message || "The AI chef could not answer.");
+}
+
+/**
+ * The newest model answers first. If it is slow (Google "high demand"), a faster model starts after HEDGE_MS
+ * and the first good answer wins; the other request is cancelled. Remaining models are a last resort.
+ */
+async function run(parts: object[], o: CookOptions): Promise<Generated> {
+  const [first, second, ...rest] = MODELS;
+  const ctrl = new AbortController();
+  const attempts: Promise<Generated>[] = [callModel(first, parts, o, 30_000, ctrl.signal)];
+  if (second) {
+    attempts.push(
+      new Promise<void>((resolve) => {
+        const t = setTimeout(resolve, HEDGE_MS);
+        // If the first model fails early, start the second right away.
+        attempts[0].catch(() => {
+          clearTimeout(t);
+          resolve();
+        });
+      }).then(() => callModel(second, parts, o, 30_000, ctrl.signal))
+    );
+  }
+  try {
+    const out = await Promise.any(attempts);
+    ctrl.abort();
+    return out;
+  } catch (agg) {
+    const errs = (agg as AggregateError).errors ?? [agg];
+    const noFood = errs.find((e) => e instanceof AiError && e.code === "no_food");
+    if (noFood) throw noFood;
+    for (const model of rest) {
+      try {
+        return await callModel(model, parts, o, 25_000, new AbortController().signal);
+      } catch (e) {
+        if (e instanceof AiError) throw e;
+      }
+    }
+    throw new AiError("failed", (errs[0] as Error)?.message || "The AI chef could not answer.");
+  }
 }
 
 function clamp(n: unknown, lo: number, hi: number, d: number) {
