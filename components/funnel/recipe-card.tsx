@@ -27,8 +27,14 @@ type Props = {
 type Placed = { i: number; side: "left" | "right" | null };
 
 function placeLabels(found: { name: string; x: number; y: number }[], w: number, h: number): Placed[] {
-  const boxes: { x1: number; y1: number; x2: number; y2: number }[] = [];
   const fs = w < 500 ? 6.4 : 7;
+  // Every pin's dot is an obstacle too, so a label never covers another ingredient's dot.
+  const dots = found.map((f) => {
+    const cx = (f.x / 100) * w;
+    const cy = (f.y / 100) * h;
+    return { x1: cx - 8, y1: cy - 8, x2: cx + 8, y2: cy + 8 };
+  });
+  const boxes: { x1: number; y1: number; x2: number; y2: number }[] = [];
   return found.map((f, i) => {
     const cx = (f.x / 100) * w;
     const cy = (f.y / 100) * h;
@@ -38,7 +44,8 @@ function placeLabels(found: { name: string; x: number; y: number }[], w: number,
       const x1 = side === "right" ? cx + 10 : cx - 10 - lw;
       const box = { x1, y1: cy - lh / 2, x2: x1 + lw, y2: cy + lh / 2 };
       if (box.x1 < 4 || box.x2 > w - 4 || box.y1 < 4 || box.y2 > h - 4) continue;
-      if (boxes.some((b) => !(box.x2 + 4 < b.x1 || box.x1 - 4 > b.x2 || box.y2 + 3 < b.y1 || box.y1 - 3 > b.y2))) continue;
+      const hit = (b: { x1: number; y1: number; x2: number; y2: number }) => !(box.x2 + 4 < b.x1 || box.x1 - 4 > b.x2 || box.y2 + 3 < b.y1 || box.y1 - 3 > b.y2);
+      if (boxes.some(hit) || dots.some((d, j) => j !== i && hit(d))) continue;
       boxes.push(box);
       return { i, side };
     }
