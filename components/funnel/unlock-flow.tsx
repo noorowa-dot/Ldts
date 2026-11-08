@@ -48,6 +48,9 @@ const ADDS: Record<UpgradeFeature, string> = {
   saved: "More saved recipes",
   quota: "More recipes every month",
   diet: "All 6 dietary filters",
+  plan: "Plan lunch and dinner for the whole week",
+  shop: "The smart shopping list: everything your week needs, in store amounts",
+  prices: "Price check: see which store is cheapest for your list",
 };
 
 type Props = {
@@ -62,9 +65,12 @@ type Props = {
   onUnlocked?: (info: { planName: string; tier: Tier }) => Promise<void> | void;
   /** Path Google should come back to. */
   returnPath: string;
+  /** Paywall title/line when there is no recipe on screen (planner, shop). */
+  paywallTitle?: string;
+  paywallLine?: string;
 };
 
-export function UnlockProvider({ children, recipe, signedIn, tier, currentPlanId, onAuthed, onUnlocked, returnPath }: Props) {
+export function UnlockProvider({ children, recipe, signedIn, tier, currentPlanId, onAuthed, onUnlocked, returnPath, paywallTitle, paywallLine }: Props) {
   const plans = usePlans();
   const [step, setStep] = React.useState<Step>(null);
   const [target, setTarget] = React.useState<CheckoutTarget | null>(null);
@@ -93,7 +99,7 @@ export function UnlockProvider({ children, recipe, signedIn, tier, currentPlanId
   const nextPlan = React.useMemo(() => {
     if (!sortedPlans.length) return null;
     const order: Tier[] = ["none", "starter", "pro", "chef"];
-    const need: Record<UpgradeFeature, Tier> = { shopping: "pro", macros: "chef", remix: "pro", saved: "pro", quota: "pro", diet: "pro" };
+    const need: Record<UpgradeFeature, Tier> = { shopping: "pro", macros: "chef", remix: "pro", saved: "pro", quota: "pro", diet: "pro", plan: "pro", shop: "starter", prices: "pro" };
     const minTier = order.indexOf(need[upFeature]);
     const cur = order.indexOf(tier);
     return sortedPlans.find((p) => order.indexOf(p.tier) > cur && order.indexOf(p.tier) >= Math.min(minTier, 3)) ?? sortedPlans.find((p) => order.indexOf(p.tier) > cur) ?? null;
@@ -167,11 +173,11 @@ export function UnlockProvider({ children, recipe, signedIn, tier, currentPlanId
   const title = recipe ? (
     <>Your {recipe.title} is ready.</>
   ) : (
-    <>Your recipe is ready.</>
+    <>{paywallTitle ?? "Your recipe is ready."}</>
   );
   const personal = recipe
     ? `Made from your ${listNice(recipe.uses.length ? recipe.uses : recipe.found.map((f) => f.name))}, in ${recipe.time_minutes} minutes. Pick a plan to cook it tonight.`
-    : "Pick a plan to see every amount and every step.";
+    : paywallLine ?? "Pick a plan to see every amount and every step.";
 
   return (
     <UnlockCtx.Provider value={{ openUnlock, openUpgrade, plans }}>

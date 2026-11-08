@@ -1,12 +1,12 @@
 "use client";
 import * as React from "react";
 import { m, useReducedMotion } from "framer-motion";
-import { Check, ChefHat, Clock, Flame, Heart, Lock, Shuffle, ShoppingBasket, Share2, Users, Sparkles, Trash2, Printer } from "lucide-react";
+import { Check, ChefHat, Clock, Flame, Heart, Lock, Shuffle, ShoppingBasket, Share2, Users, Sparkles, Trash2, Printer, Pencil, X, Plus, RotateCcw } from "lucide-react";
 import type { RecipeView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Sticker, toneCycle } from "@/components/ui/sticker";
 
-export type UpgradeFeature = "shopping" | "macros" | "remix" | "saved" | "quota" | "diet";
+export type UpgradeFeature = "shopping" | "macros" | "remix" | "saved" | "quota" | "diet" | "plan" | "shop" | "prices";
 
 type Props = {
   recipe: RecipeView;
@@ -22,6 +22,8 @@ type Props = {
   };
   justUnlocked?: boolean;
   className?: string;
+  /** Remake the recipe from a corrected ingredient list (when the photo was misread). */
+  onEditIngredients?: (items: string[]) => void;
 };
 
 type Placed = { i: number; side: "left" | "right" | null };
@@ -102,6 +104,77 @@ export function PhotoWithStickers({ recipe, className, live = false }: { recipe:
   );
 }
 
+/** The detected ingredients, editable: remove what the photo got wrong, add what it missed, remake the recipe. */
+function IngredientEditor({ names, onSubmit }: { names: string[]; onSubmit: (items: string[]) => void }) {
+  const [editing, setEditing] = React.useState(false);
+  const [items, setItems] = React.useState(names);
+  const [draft, setDraft] = React.useState("");
+  const changed = items.join("|") !== names.join("|");
+  const add = () => {
+    const v = draft.trim().replace(/\s+/g, " ");
+    if (v && !items.some((x) => x.toLowerCase() === v.toLowerCase())) setItems([...items, v[0].toUpperCase() + v.slice(1)]);
+    setDraft("");
+  };
+  if (!editing)
+    return (
+      <div className="mt-2.5" data-testid="found-list">
+        <div className="flex flex-wrap gap-1.5">
+          {names.map((n, i) => (
+            <Sticker key={n + i} tone={toneCycle[i % 3]} className="text-[12px]">
+              {n}
+            </Sticker>
+          ))}
+        </div>
+        <button type="button" onClick={() => setEditing(true)} className="mt-2.5 inline-flex cursor-pointer items-center gap-1.5 text-[13px] font-semibold text-fg-muted underline-offset-4 hover:text-fg hover:underline print:hidden" data-testid="edit-ingredients">
+          <Pencil className="h-3.5 w-3.5" /> Something wrong? Fix the ingredients
+        </button>
+      </div>
+    );
+  return (
+    <div className="mt-3 rounded-2xl border border-border bg-surface-2 p-3.5" data-testid="ingredient-editor">
+      <p className="text-[13px] font-semibold">What&apos;s really in your fridge?</p>
+      <p className="text-[12px] text-fg-muted">Tap × to remove what we got wrong, add what we missed.</p>
+      <div className="mt-2.5 flex flex-wrap gap-1.5">
+        {items.map((n, i) => (
+          <span key={n + i} className="inline-flex items-center gap-1 rounded-full border border-border bg-surface py-1 pl-3 pr-1 text-[13px] font-semibold">
+            {n}
+            <button type="button" aria-label={`Remove ${n}`} onClick={() => setItems(items.filter((_, j) => j !== i))} className="grid h-6 w-6 cursor-pointer place-items-center rounded-full text-fg-muted hover:bg-surface-2 hover:text-tomato-deep">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </span>
+        ))}
+      </div>
+      <form
+        className="mt-2.5 flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          add();
+        }}
+      >
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={40} placeholder="Add an ingredient" className="h-10 min-w-0 flex-1 rounded-full border border-border bg-surface px-4 text-[15px] outline-none focus:border-tomato" data-testid="add-ingredient" />
+        <button type="submit" disabled={!draft.trim()} className="inline-flex h-10 cursor-pointer items-center gap-1 rounded-full border border-border bg-surface px-3.5 text-[14px] font-semibold disabled:opacity-50">
+          <Plus className="h-4 w-4" /> Add
+        </button>
+      </form>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={!changed || items.length < 2}
+          onClick={() => onSubmit(items)}
+          className="inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-full bg-tomato px-4 text-[14px] font-semibold text-white active:scale-95 disabled:opacity-50"
+          data-testid="remake-recipe"
+        >
+          <RotateCcw className="h-4 w-4" /> Remake my recipe
+        </button>
+        <button type="button" onClick={() => { setItems(names); setEditing(false); }} className="h-10 cursor-pointer rounded-full px-3 text-[14px] font-semibold text-fg-muted hover:text-fg">
+          Cancel
+        </button>
+      </div>
+      {items.length < 2 && <p className="mt-1.5 text-[12px] text-tomato-deep">Keep at least 2 ingredients.</p>}
+    </div>
+  );
+}
+
 function LockedOverlay({ label, onClick, sub }: { label: string; onClick?: () => void; sub?: string }) {
   return (
     <button
@@ -120,7 +193,7 @@ function LockedOverlay({ label, onClick, sub }: { label: string; onClick?: () =>
   );
 }
 
-export function RecipeCard({ recipe, onUnlock, onUpgrade, unlockLabel = "See my full recipe", actions, justUnlocked, className }: Props) {
+export function RecipeCard({ recipe, onUnlock, onUpgrade, unlockLabel = "See my full recipe", actions, justUnlocked, className, onEditIngredients }: Props) {
   const reduce = useReducedMotion();
   const { unlocked } = recipe.access;
   const usesCount = recipe.uses.length || recipe.body.ingredients.filter((i) => i.from_fridge).length;
@@ -136,13 +209,17 @@ export function RecipeCard({ recipe, onUnlock, onUpgrade, unlockLabel = "See my 
             We found {recipe.found.length} ingredient{recipe.found.length === 1 ? "" : "s"} in your fridge
           </span>
         </div>
-        <div className="mt-2.5 flex flex-wrap gap-1.5" data-testid="found-list">
-          {recipe.found.map((f, i) => (
-            <Sticker key={f.name + i} tone={toneCycle[i % 3]} className="text-[12px]">
-              {f.name}
-            </Sticker>
-          ))}
-        </div>
+        {onEditIngredients ? (
+          <IngredientEditor names={recipe.found.map((f) => f.name)} onSubmit={onEditIngredients} />
+        ) : (
+          <div className="mt-2.5 flex flex-wrap gap-1.5" data-testid="found-list">
+            {recipe.found.map((f, i) => (
+              <Sticker key={f.name + i} tone={toneCycle[i % 3]} className="text-[12px]">
+                {f.name}
+              </Sticker>
+            ))}
+          </div>
+        )}
         <h2 className="mt-4 text-[30px] font-semibold leading-[1.05] tracking-[-0.03em] sm:text-[40px]" data-testid="recipe-title">
           {recipe.title}
         </h2>

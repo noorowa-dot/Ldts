@@ -185,20 +185,23 @@ export function tierOf(plan: PlanState["plan"], plans: KwopPlan[]): Tier {
   return tiers[Math.min(idx, tiers.length - 1)] ?? "starter";
 }
 
-export const QUOTAS: Record<Tier, { recipes: number; saved: number; diets: "all" | "vegetarian" | "none"; shopping: boolean; macros: boolean; remix: number; calorieTarget: boolean }> = {
-  none: { recipes: 0, saved: 3, diets: "none", shopping: false, macros: false, remix: 0, calorieTarget: false },
-  starter: { recipes: 20, saved: 25, diets: "vegetarian", shopping: false, macros: false, remix: 0, calorieTarget: false },
-  pro: { recipes: 60, saved: 100000, diets: "all", shopping: true, macros: false, remix: 3, calorieTarget: false },
-  chef: { recipes: 150, saved: 100000, diets: "all", shopping: true, macros: true, remix: 10, calorieTarget: true },
+export const QUOTAS: Record<
+  Tier,
+  { recipes: number; saved: number; diets: "all" | "vegetarian" | "none"; shopping: boolean; macros: boolean; remix: number; calorieTarget: boolean; planMeals: number; shopList: boolean; priceCheck: boolean }
+> = {
+  none: { recipes: 0, saved: 3, diets: "none", shopping: false, macros: false, remix: 0, calorieTarget: false, planMeals: 3, shopList: false, priceCheck: false },
+  starter: { recipes: 20, saved: 25, diets: "vegetarian", shopping: false, macros: false, remix: 0, calorieTarget: false, planMeals: 3, shopList: true, priceCheck: false },
+  pro: { recipes: 60, saved: 100000, diets: "all", shopping: true, macros: false, remix: 3, calorieTarget: false, planMeals: 14, shopList: true, priceCheck: true },
+  chef: { recipes: 150, saved: 100000, diets: "all", shopping: true, macros: true, remix: 10, calorieTarget: true, planMeals: 14, shopList: true, priceCheck: true },
 };
 
 /** "What you unlock" lines for a tier. */
 export function unlockLines(t: Tier): string[] {
   const q = QUOTAS[t];
   const lines = [`${q.recipes} fridge recipes a month`, "Every step, every amount, in plain words"];
-  if (t === "starter") lines.push("Vegetarian filter", "Save up to 25 favorite recipes");
-  if (t === "pro") lines.push("All 6 dietary filters: vegan, keto, gluten-free and more", "Shopping Saver: the tiny list of what's missing", "3 remixes per recipe · unlimited favorites");
-  if (t === "chef") lines.push("Macros per serving + a calorie target", "The chef's tip on every dish", "All 6 dietary filters + Shopping Saver", "10 remixes per recipe · unlimited favorites");
+  if (t === "starter") lines.push("Plan 3 dinners a week + one smart shopping list", "Vegetarian filter · save up to 25 recipes");
+  if (t === "pro") lines.push("Plan lunch + dinner all week, one smart shopping list", "Price check: see which store is cheapest for your list", "All 6 dietary filters + Shopping Saver", "3 remixes per recipe · unlimited favorites");
+  if (t === "chef") lines.push("Macros per serving + a calorie target", "Plan the whole week + price check across your stores", "All 6 dietary filters + Shopping Saver + chef's tips", "10 remixes per recipe · unlimited favorites");
   return lines;
 }
 

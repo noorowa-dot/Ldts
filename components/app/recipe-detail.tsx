@@ -1,7 +1,8 @@
 "use client";
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check } from "lucide-react";
+import { ArrowLeft, Check, CalendarPlus, Loader2 } from "lucide-react";
+import { DAY_NAMES, mondayOf, addDays } from "@/lib/week";
 import { AnimatePresence, m } from "framer-motion";
 import type { RecipeView } from "@/lib/types";
 import { RecipeCard, type UpgradeFeature } from "@/components/funnel/recipe-card";
@@ -50,6 +51,28 @@ function Inner({ recipe, setRecipe }: { recipe: RecipeView; setRecipe: (r: Recip
   const { toast, show } = useToast();
   const [remixing, setRemixing] = React.useState(false);
   const [confirmDel, setConfirmDel] = React.useState(false);
+  const [reworking, setReworking] = React.useState(false);
+  const [planOpen, setPlanOpen] = React.useState(false);
+
+  async function rework(items: string[]) {
+    setReworking(true);
+    const r = await fetch(`/api/recipes/${recipe.id}/rework`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items }) });
+    const d = await r.json().catch(() => ({}));
+    setReworking(false);
+    if (r.status === 429) return openUpgrade("quota");
+    if (!r.ok) return show(d.message || "Couldn't remake it. Try again.");
+    router.push(`/r/${d.recipe.id}`);
+  }
+
+  async function plan(day: number, nextWeek: boolean) {
+    const week = nextWeek ? addDays(mondayOf(new Date()), 7) : mondayOf(new Date());
+    const r = await fetch("/api/plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ week, day, slot: "dinner", servings: recipe.servings, recipe_id: recipe.id }) });
+    const d = await r.json().catch(() => ({}));
+    setPlanOpen(false);
+    if (r.status === 403 || r.status === 429) return openUpgrade(d.feature ?? "plan");
+    if (!r.ok) return show(d.message || "Couldn't add it. Try again.");
+    show(`Added to ${DAY_NAMES[day]}${nextWeek ? " next week" : ""}`);
+  }
 
   async function favorite() {
     const next = !recipe.is_favorite;
@@ -100,10 +123,33 @@ function Inner({ recipe, setRecipe }: { recipe: RecipeView; setRecipe: (r: Recip
       <a href="/app/recipes" className="mb-4 inline-flex items-center gap-1.5 text-[14px] font-semibold text-fg-muted hover:text-fg print:hidden">
         <ArrowLeft className="h-4 w-4" /> All recipes
       </a>
+      <div className="mb-3 flex flex-wrap items-center gap-2 print:hidden">
+        <button type="button" onClick={() => setPlanOpen((o) => !o)} className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full bg-ink px-4 text-[14px] font-semibold text-cream dark:bg-cream dark:text-ink" data-testid="add-to-week">
+          <CalendarPlus className="h-4 w-4" /> Add to my week
+        </button>
+        {planOpen && (
+          <div className="flex flex-wrap gap-1.5">
+            {DAY_NAMES.map((n, i) => (
+              <button key={n} type="button" onClick={() => plan(i, false)} className="h-9 cursor-pointer rounded-full border border-border bg-surface px-3 text-[13px] font-semibold hover:bg-surface-2">
+                {n.slice(0, 3)}
+              </button>
+            ))}
+            <button type="button" onClick={() => plan(0, true)} className="h-9 cursor-pointer rounded-full border border-border bg-surface px-3 text-[13px] font-semibold hover:bg-surface-2">
+              Next Mon
+            </button>
+          </div>
+        )}
+      </div>
+      {reworking && (
+        <p className="mb-3 flex items-center gap-2 rounded-2xl bg-butter-soft px-4 py-3 text-[14px] font-semibold text-[#5b430a]">
+          <Loader2 className="h-4 w-4 animate-spin" /> Remaking your recipe with the right ingredients…
+        </p>
+      )}
       <RecipeCard
         recipe={recipe}
         onUnlock={openUnlock}
         onUpgrade={openUpgrade}
+        onEditIngredients={reworking ? undefined : rework}
         actions={{ onFavorite: favorite, onShare: share, onRemix: remix, onDelete: () => setConfirmDel(true), remixing }}
       />
       {confirmDel && (

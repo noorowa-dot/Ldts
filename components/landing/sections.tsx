@@ -2,7 +2,7 @@
 import Link from "next/link";
 import * as React from "react";
 import { m, useReducedMotion, useScroll, useMotionValueEvent, AnimatePresence } from "framer-motion";
-import { ArrowRight, Camera, Check, ChefHat, Clock, Heart, Leaf, ShoppingBasket, Sparkles, Trash2, X, Lightbulb, ListChecks } from "lucide-react";
+import { ArrowRight, Camera, Check, ChefHat, Clock, Heart, Leaf, ShoppingBasket, Sparkles, Trash2, X, Lightbulb, ListChecks, CalendarDays } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { Reveal, Stagger } from "@/components/ui/reveal";
 import { PhoneFrame } from "@/components/ui/phone-frame";
@@ -238,6 +238,12 @@ const FEATURES = [
   { key: "diet", icon: Leaf, title: "Dietary filters", text: "Vegan, keto, gluten-free, dairy-free, vegetarian or high-protein. Your call." },
   { key: "shop", icon: ShoppingBasket, title: "Shopping Saver", text: "Missing something? A tiny list, only if it's truly needed. Usually: nothing." },
   { key: "save", icon: Heart, title: "Save favorites", text: "Bookmark the dishes you loved and cook them again next week." },
+  {
+    key: "plan",
+    icon: CalendarDays,
+    title: "Plan your week, shop once",
+    text: "Pick what you'll eat this week. Platepal adds up every ingredient into one list, in the amounts stores sell, skips what's already in your fridge, and compares prices across your stores.",
+  },
 ] as const;
 
 function FeatureLoop({ k }: { k: (typeof FEATURES)[number]["key"] }) {
@@ -288,6 +294,57 @@ function FeatureLoop({ k }: { k: (typeof FEATURES)[number]["key"] }) {
         })}
       </div>
     );
+  if (k === "plan") {
+    const week = [
+      ["Mon", "Tacos"],
+      ["Tue", "Stir-fry"],
+      ["Wed", "Pasta"],
+      ["Thu", "Chili"],
+      ["Fri", "Salmon"],
+    ];
+    const list = [
+      ["Chicken thighs", "2 lb"],
+      ["Bell peppers", "3"],
+      ["Black beans", "2 cans"],
+      ["Eggs", "1 dozen"],
+      ["Salmon fillets", "1 lb"],
+    ];
+    const shown = reduce ? 5 : (tick % 8) + 1;
+    return (
+      <div className="grid h-full gap-3 p-3 sm:grid-cols-[1.2fr_1fr]">
+        <div className="grid grid-cols-5 gap-1.5">
+          {week.map(([d, meal], i) => (
+            <div key={d} className={cn("flex min-w-0 flex-col rounded-xl border p-1.5 transition-all duration-500 sm:p-2", i < shown ? "border-tomato/30 bg-paper" : "border-dashed border-line bg-transparent")}>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-muted">{d}</span>
+              <span className={cn("mt-1 break-words text-[11px] font-semibold leading-tight transition-opacity duration-500 sm:text-[12px]", i < shown ? "opacity-100" : "opacity-0")}>{meal}</span>
+            </div>
+          ))}
+        </div>
+        <div className="rounded-xl bg-paper p-3 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">One list</p>
+          <ul className="mt-1.5 space-y-1">
+            {list.map(([n, q], i) => (
+              <li key={n} className={cn("flex justify-between text-[12px] transition-opacity duration-500", i < Math.max(0, shown - 2) ? "opacity-100" : "opacity-20")}>
+                <span className="flex items-center gap-1.5">
+                  <span className={cn("grid h-3.5 w-3.5 place-items-center rounded border", i < shown - 4 ? "border-olive bg-olive text-white" : "border-line")}>{i < shown - 4 && <Check className="h-2.5 w-2.5" strokeWidth={3} />}</span>
+                  {n}
+                </span>
+                <span className="font-mono text-muted">{q}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-2 flex gap-1.5 text-[11px]">
+            {["Store A", "Store B", "Store C"].map((st, i) => (
+              <span key={st} className={cn("rounded-full px-2 py-0.5 font-semibold", i === 1 && shown > 5 ? "bg-olive text-white" : "bg-[#f5eedf] text-muted")}>
+                {st}
+              </span>
+            ))}
+          </div>
+          <p className="mt-1 text-[10px] text-muted">Example week</p>
+        </div>
+      </div>
+    );
+  }
   if (k === "shop")
     return (
       <div className="flex h-full flex-col justify-center gap-2 p-5">
@@ -319,8 +376,8 @@ export function InAction() {
         </Reveal>
         <div className="mt-12 grid gap-4 md:grid-cols-6">
           {FEATURES.map((f, i) => (
-            <Reveal key={f.key} delay={i * 0.06} className={cn("recipe-card flex flex-col overflow-hidden p-5", i < 2 ? "md:col-span-3" : "md:col-span-2")}>
-              <div className={cn("rounded-2xl bg-surface-2", i < 2 ? "h-56" : "h-48")}>
+            <Reveal key={f.key} delay={i * 0.06} className={cn("recipe-card flex flex-col overflow-hidden p-5", i < 2 ? "md:col-span-3" : i === 5 ? "md:col-span-6" : "md:col-span-2")}>
+              <div className={cn("rounded-2xl bg-surface-2", i < 2 ? "h-56" : i === 5 ? "min-h-48" : "h-48")}>
                 <FeatureLoop k={f.key} />
               </div>
               <div className="mt-5 flex items-center gap-2">

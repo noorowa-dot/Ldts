@@ -3,6 +3,7 @@ import { listRecipes } from "@/lib/lists";
 import { RecipeList, ListError } from "@/components/app/recipe-list";
 import { ListSkeleton } from "@/components/app/list-skeleton";
 import { PageTitle } from "@/components/app/app-shell";
+import { RecipeTabs } from "@/components/app/recipe-tabs";
 
 async function Items() {
   const items = await listRecipes({ favorites: true }).catch(() => null);
@@ -14,6 +15,7 @@ export default function Page() {
   return (
     <div>
       <PageTitle title="Saved" sub="The dishes you loved. Cook them again next week." />
+      <RecipeTabs active="saved" />
       <Suspense fallback={<ListSkeleton />}>
         <Items />
       </Suspense>

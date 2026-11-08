@@ -107,6 +107,7 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock, options }: { reci
   const [drag, setDrag] = React.useState(false);
   const [last, setLast] = React.useState<{ id: string; title: string } | null>(null);
   const fileRef = React.useRef<HTMLInputElement>(null);
+  const cameraRef = React.useRef<HTMLInputElement>(null);
   const topRef = React.useRef<HTMLDivElement>(null);
   const autoOpened = React.useRef(false);
 
@@ -154,8 +155,8 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock, options }: { reci
     return () => cancelAnimationFrame(raf);
   }, [phase.kind]);
 
-  async function run(body: FormData, preview: string) {
-    if (options.diet?.length && !body.has("diet")) body.append("diet", options.diet.join(","));
+  async function run(body: FormData | { url: string; json: unknown }, preview: string) {
+    if (body instanceof FormData && options.diet?.length && !body.has("diet")) body.append("diet", options.diet.join(","));
     setPhase({ kind: "working", preview });
     setStamp(false);
     topRef.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
@@ -163,7 +164,10 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock, options }: { reci
     // eslint-disable-next-line react-hooks/purity
     const started = Date.now();
     const attempt = async () => {
-      const r = await fetch("/api/scan", { method: "POST", body });
+      const r =
+        body instanceof FormData
+          ? await fetch("/api/scan", { method: "POST", body })
+          : await fetch(body.url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body.json) });
       const d = await r.json().catch(() => ({}));
       return { r, d };
     };
@@ -228,7 +232,7 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock, options }: { reci
       <AnimatePresence mode="wait" initial={false}>
         {phase.kind === "idle" && (
           <m.div key="idle" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }}>
-            <label
+            <div
               onDragOver={(e) => {
                 e.preventDefault();
                 setDrag(true);
@@ -241,29 +245,47 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock, options }: { reci
               }}
               data-testid="dropzone"
               className={cn(
-                "group relative flex cursor-pointer flex-col items-center justify-center gap-3 overflow-hidden rounded-[28px] border-2 border-dashed px-6 py-10 text-center transition sm:py-14",
-                drag ? "border-lime bg-lime/10" : "border-cream/25 bg-white/[.04] hover:border-cream/45 hover:bg-white/[.07]"
+                "relative flex flex-col items-center justify-center gap-3 overflow-hidden rounded-[28px] border-2 border-dashed px-5 py-9 text-center transition sm:py-12",
+                drag ? "border-lime bg-lime/10" : "border-cream/25 bg-white/[.04]"
               )}
             >
               <ScanCorners />
-              <span className="relative grid h-16 w-16 place-items-center rounded-full bg-tomato text-white shadow-[0_12px_30px_-10px_rgb(210_64_42/.9)] transition group-hover:scale-105 group-active:scale-95">
+              <button
+                type="button"
+                onClick={() => cameraRef.current?.click()}
+                aria-label="Take a photo of your fridge"
+                className="group relative grid h-16 w-16 cursor-pointer place-items-center rounded-full bg-tomato text-white shadow-[0_12px_30px_-10px_rgb(210_64_42/.9)] transition hover:scale-105 active:scale-95"
+              >
                 <Camera className="h-7 w-7" />
                 <span className="btn-glow absolute -inset-2 -z-10 rounded-full bg-tomato/40 blur-lg" />
-              </span>
+              </button>
               <span className="font-serif text-[26px] font-semibold tracking-[-0.02em] text-cream sm:text-[30px]">Snap your fridge</span>
-              <span className="text-[14px] text-cream/60">
-                <span className="hidden sm:inline">or drop a photo here · </span>JPG, PNG or HEIC
+              <div className="relative flex flex-wrap items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => cameraRef.current?.click()}
+                  data-testid="take-photo"
+                  className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-full bg-cream px-5 text-[15px] font-semibold text-ink transition hover:bg-white active:scale-95 sm:hidden"
+                >
+                  <Camera className="h-4.5 w-4.5" /> Take a photo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  data-testid="upload-photo"
+                  className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-full border border-cream/30 bg-white/[.06] px-5 text-[15px] font-semibold text-cream transition hover:bg-white/[.12] active:scale-95"
+                >
+                  <ImagePlus className="h-4.5 w-4.5" /> Upload a photo
+                </button>
+              </div>
+              <span className="text-[13px] text-cream/60">
+                <span className="hidden sm:inline">or drop it here · </span>JPG, PNG or HEIC
               </span>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="sr-only"
-                onChange={(e) => onFile(e.target.files?.[0])}
-                data-testid="file-input"
-              />
-            </label>
+              {/* Camera on phones */}
+              <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="sr-only" tabIndex={-1} onChange={(e) => onFile(e.target.files?.[0])} data-testid="camera-input" />
+              {/* Photo library / files */}
+              <input ref={fileRef} type="file" accept="image/*" className="sr-only" tabIndex={-1} onChange={(e) => onFile(e.target.files?.[0])} data-testid="file-input" />
+            </div>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-[14px] text-cream/70">
               <span>No photo handy? Try an example:</span>
               {EXAMPLES.map((ex) => (
@@ -369,7 +391,13 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock, options }: { reci
 
         {phase.kind === "done" && (
           <m.div key={"done" + phase.recipe.id} initial={reduce ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.22, 0.8, 0.24, 1] }}>
-            <RecipeCard recipe={phase.recipe} onUnlock={openUnlock} onUpgrade={openUpgrade} justUnlocked={justUnlocked} />
+            <RecipeCard
+              recipe={phase.recipe}
+              onUnlock={openUnlock}
+              onUpgrade={openUpgrade}
+              justUnlocked={justUnlocked}
+              onEditIngredients={(items) => run({ url: `/api/recipes/${phase.recipe.id}/rework`, json: { items } }, phase.recipe.photo_url ?? "")}
+            />
             {!phase.recipe.access.unlocked && (
               <div className="mt-4 flex flex-col items-center gap-3">
                 <button type="button" onClick={openUnlock} data-testid="unlock-cta" className="group relative isolate flex h-16 w-full max-w-md cursor-pointer items-center justify-center gap-3 rounded-full bg-tomato text-[17px] font-semibold text-white transition hover:bg-tomato-deep active:scale-[0.955]">

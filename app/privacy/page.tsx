@@ -12,6 +12,7 @@ export default function Page() {
         <li>Your email address and password (stored securely by our login provider; we never see your password).</li>
         <li>The fridge photos you upload, the ingredients we detect and the recipes we make for you.</li>
         <li>Your settings and answers, such as dietary filters and a calorie target.</li>
+        <li>Your planned meals, your shopping lists, your stores and the prices you type in. Prices you type stay private to your account.</li>
         <li>Usage counts, so we can apply your plan&apos;s monthly recipe limit.</li>
         <li>Where you came from (for example a referral link or a campaign tag), so we know what works.</li>
       </ul>
@@ -22,6 +23,7 @@ export default function Page() {
         <li><b>Supabase</b>: database, login and photo storage.</li>
         <li><b>Vercel</b>: hosting.</li>
         <li><b>Google Gemini</b>: reads your photo and writes the recipe. Photos are sent to Google only to make your recipe.</li>
+        <li><b>Kroger</b> (only if you ask for live prices): we send item names and your ZIP code, never your name or email.</li>
         <li><b>Whop, through Kwop</b>: payments. Card details go straight to Whop; we never see or store them.</li>
         <li><b>Kwop</b>: visit analytics by Kwop on our public pages (landing page, sign-up, log-in), and anonymous product events (such as &quot;sign-up&quot; or &quot;recipe made&quot;) tied to your email to show the owner how the product is doing.</li>
       </ul>

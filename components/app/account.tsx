@@ -59,6 +59,7 @@ export function AccountPage() {
           <Row k="Email" v={<span data-testid="account-email">{me.email}</span>} />
           <Row k="Language" v="English (US)" />
         </div>
+        <a href="/app/settings" className="mt-3 inline-flex h-10 items-center rounded-full border border-border px-4 text-[14px] font-semibold md:hidden">Diet, calories & appearance</a>
       </section>
 
       <section className="recipe-card p-5 sm:p-6" id="billing">

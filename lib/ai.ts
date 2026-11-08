@@ -83,16 +83,26 @@ type CookOptions = {
   diet?: Diet[];
   calorieTarget?: number | null;
   avoidTitles?: string[];
+  /** "fridge": only what is at home (default). "idea": a dish the person wants to cook this week (shopping allowed). */
+  mode?: "fridge" | "idea";
 };
 
 function instructions(o: CookOptions) {
-  const lines = [
-    "You are Platepal's chef, cooking for a busy person in the United States who wants dinner from what is already at home.",
-    "Write in simple American English (cups, tablespoons, °F). Kind, short, concrete.",
-    "Build ONE delicious, realistic recipe that relies on the visible ingredients. Assume only these staples exist: salt, pepper, cooking oil, water, butter is NOT assumed.",
-    "Prefer recipes ready in 30 minutes or less. Never invent ingredients that are not visible or a staple; anything else goes in `shopping` and only if truly needed.",
-  ];
-  if (o.diet?.length) lines.push(`The recipe MUST be: ${o.diet.join(", ")}. Skip visible items that break this.`);
+  const lines =
+    o.mode === "idea"
+      ? [
+          "You are Platepal's chef, planning a dinner for a busy person in the United States who will shop for it this week.",
+          "Write in simple American English (cups, tablespoons, °F). Kind, short, concrete.",
+          "Build ONE delicious, realistic recipe for the requested dish with ingredients any US grocery store sells.",
+          "List every ingredient with a precise amount. `found` = the main ingredients (x and y can be any value). `shopping` stays empty.",
+        ]
+      : [
+          "You are Platepal's chef, cooking for a busy person in the United States who wants dinner from what is already at home.",
+          "Write in simple American English (cups, tablespoons, °F). Kind, short, concrete.",
+          "Build ONE delicious, realistic recipe that relies on the visible ingredients. Assume only these staples exist: salt, pepper, cooking oil, water, butter is NOT assumed.",
+          "Prefer recipes ready in 30 minutes or less. Never invent ingredients that are not visible or a staple; anything else goes in `shopping` and only if truly needed.",
+        ];
+  if (o.diet?.length) lines.push(`The recipe MUST be: ${o.diet.join(", ")}. Skip items that break this.`);
   if (o.calorieTarget) lines.push(`Aim for about ${o.calorieTarget} calories per serving.`);
   if (o.avoidTitles?.length) lines.push(`Make something clearly different from: ${o.avoidTitles.join("; ")}.`);
   return lines.join("\n");
@@ -100,7 +110,9 @@ function instructions(o: CookOptions) {
 
 const HEDGE_MS = Number(process.env.GEMINI_HEDGE_MS || 6000);
 
-async function callModel(model: string, parts: object[], o: CookOptions, timeout: number, signal: AbortSignal): Promise<Generated> {
+type JsonCall = { system: string; schema: object; temperature: number };
+
+async function callModel(model: string, parts: object[], c: JsonCall, timeout: number, signal: AbortSignal): Promise<Record<string, unknown>> {
   let thinking = true;
   for (;;) {
     const t0 = Date.now();
@@ -109,21 +121,18 @@ async function callModel(model: string, parts: object[], o: CookOptions, timeout
         model,
         contents: [{ role: "user", parts }],
         config: {
-          systemInstruction: instructions(o),
+          systemInstruction: c.system,
           responseMimeType: "application/json",
-          responseJsonSchema: schema,
-          temperature: o.avoidTitles?.length ? 1 : 0.7,
+          responseJsonSchema: c.schema,
+          temperature: c.temperature,
           ...(thinking ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } } : {}),
           abortSignal: signal,
           httpOptions: { timeout, retryOptions: { attempts: 1 } },
         },
       });
       console.log(`[ai] ${model} answered in ${Date.now() - t0} ms`);
-      const data = JSON.parse(res.text ?? "{}");
-      if (data.no_food || !data.found?.length) throw new AiError("no_food", "We couldn't spot any food in that photo.");
-      return sanitize(data);
+      return JSON.parse(res.text ?? "{}");
     } catch (e) {
-      if (e instanceof AiError) throw e;
       if (thinking && /thinking/i.test(String((e as Error)?.message))) {
         thinking = false; // this model has no thinking levels: ask again without it
         continue;
@@ -137,11 +146,13 @@ async function callModel(model: string, parts: object[], o: CookOptions, timeout
 /**
  * The newest model answers first. If it is slow (Google "high demand"), a faster model starts after HEDGE_MS
  * and the first good answer wins; the other request is cancelled. Remaining models are a last resort.
+ * `check` validates an answer (throwing an AiError stops everything, e.g. "no food in this photo").
  */
-async function run(parts: object[], o: CookOptions): Promise<Generated> {
+async function runJson<T>(parts: object[], c: JsonCall, check: (d: Record<string, unknown>) => T): Promise<T> {
   const [first, second, ...rest] = MODELS;
   const ctrl = new AbortController();
-  const attempts: Promise<Generated>[] = [callModel(first, parts, o, 30_000, ctrl.signal)];
+  const one = (model: string, timeout: number, signal: AbortSignal) => callModel(model, parts, c, timeout, signal).then(check);
+  const attempts: Promise<T>[] = [one(first, 30_000, ctrl.signal)];
   if (second) {
     attempts.push(
       new Promise<void>((resolve) => {
@@ -151,7 +162,7 @@ async function run(parts: object[], o: CookOptions): Promise<Generated> {
           clearTimeout(t);
           resolve();
         });
-      }).then(() => callModel(second, parts, o, 30_000, ctrl.signal))
+      }).then(() => one(second, 30_000, ctrl.signal))
     );
   }
   try {
@@ -160,17 +171,24 @@ async function run(parts: object[], o: CookOptions): Promise<Generated> {
     return out;
   } catch (agg) {
     const errs = (agg as AggregateError).errors ?? [agg];
-    const noFood = errs.find((e) => e instanceof AiError && e.code === "no_food");
-    if (noFood) throw noFood;
+    const known = errs.find((e) => e instanceof AiError && e.code !== "failed");
+    if (known) throw known;
     for (const model of rest) {
       try {
-        return await callModel(model, parts, o, 25_000, new AbortController().signal);
+        return await one(model, 25_000, new AbortController().signal);
       } catch (e) {
-        if (e instanceof AiError) throw e;
+        if (e instanceof AiError && e.code !== "failed") throw e;
       }
     }
     throw new AiError("failed", (errs[0] as Error)?.message || "The AI chef could not answer.");
   }
+}
+
+function run(parts: object[], o: CookOptions): Promise<Generated> {
+  return runJson(parts, { system: instructions(o), schema, temperature: o.avoidTitles?.length ? 1 : 0.7 }, (data) => {
+    if (data.no_food || !(data.found as unknown[])?.length) throw new AiError("no_food", "We couldn't spot any food in that photo.");
+    return sanitize(data);
+  });
 }
 
 function clamp(n: unknown, lo: number, hi: number, d: number) {
@@ -264,4 +282,94 @@ export function cookFromList(items: string[], o: CookOptions = {}) {
     ],
     o
   );
+}
+
+/** Plan a dish the person wants this week ("chicken tacos"). */
+export function cookFromIdea(dish: string, o: CookOptions = {}) {
+  return run([{ text: `Dish I want to cook this week: ${dish}` }], { ...o, mode: "idea" });
+}
+
+/* ---------------- Weekly shopping list ---------------- */
+
+export const AISLES = ["Produce", "Meat & Fish", "Dairy & Eggs", "Bakery", "Pantry", "Frozen", "Spices & Sauces", "Other"] as const;
+export type Aisle = (typeof AISLES)[number];
+
+export type ShopLine = {
+  name: string;
+  quantity: number;
+  unit: string;
+  buy: string;
+  aisle: Aisle;
+  for_meals: string[];
+  have_at_home: boolean;
+};
+
+const shopSchema = {
+  type: "object",
+  properties: {
+    items: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Plain grocery name as a store sells it, singular, Title Case (e.g. 'Chicken Thighs', 'Yellow Onion')" },
+          quantity: { type: "number", description: "Total needed across all meals, in `unit`" },
+          unit: { type: "string", description: "lb, oz, count, cup, tbsp, tsp, bunch, can, clove, head, dozen…" },
+          buy: { type: "string", description: "What to put in the cart in US store packs, e.g. '1 lb pack', '1 bag (5 oz)', '2 cans (15 oz)', '1 head'" },
+          aisle: { type: "string", enum: [...AISLES] },
+          for_meals: { type: "array", items: { type: "string" }, description: "Titles of the meals that use it" },
+          have_at_home: { type: "boolean", description: "true when the pantry list already covers it" },
+        },
+        required: ["name", "quantity", "unit", "buy", "aisle", "for_meals", "have_at_home"],
+      },
+    },
+  },
+  required: ["items"],
+};
+
+/**
+ * The assistant's shop: merges every meal's ingredients (scaled to the planned servings), combines duplicates,
+ * converts to what US stores sell, and flags what is already at home.
+ */
+export function buildShoppingList(input: {
+  meals: { title: string; servings: number; recipe_servings: number; ingredients: { item: string; amount: string }[] }[];
+  pantry: string[];
+}): Promise<ShopLine[]> {
+  const text = [
+    "Meals planned this week (scale each recipe from its servings to the planned servings):",
+    ...input.meals.map(
+      (m) => `- ${m.title} (recipe serves ${m.recipe_servings}, planned for ${m.servings}): ${m.ingredients.map((i) => `${i.amount} ${i.item}`).join("; ")}`
+    ),
+    "",
+    `Already at home (from their fridge photos and their own notes): ${input.pantry.length ? input.pantry.join(", ") : "nothing known"}.`,
+  ].join("\n");
+  const system = [
+    "You are Platepal's shopping assistant for a busy person in the United States.",
+    "Make ONE shopping list for the whole week: combine the same ingredient across meals (e.g. 2 cloves + 3 cloves garlic = 5 cloves → buy 1 head),",
+    "scale amounts to the planned servings, round up to real US store pack sizes, and never forget an ingredient.",
+    "Salt, pepper, water and cooking oil are assumed at home: mark them have_at_home=true.",
+    "Mark have_at_home=true only when the pantry list clearly covers it. Keep names short and plain.",
+  ].join("\n");
+  return runJson([{ text }], { system, schema: shopSchema, temperature: 0.2 }, (d) => {
+    const items = Array.isArray(d.items) ? (d.items as Record<string, unknown>[]) : [];
+    if (!items.length) throw new AiError("failed", "Empty shopping list");
+    const seen = new Set<string>();
+    return items
+      .map((i) => ({
+        name: nice(str(i.name, 60)),
+        quantity: Math.max(0, Math.round(Number(i.quantity) * 100) / 100) || 1,
+        unit: str(i.unit, 16) || "count",
+        buy: str(i.buy, 60),
+        aisle: ((AISLES as readonly string[]).includes(String(i.aisle)) ? i.aisle : "Other") as Aisle,
+        for_meals: (Array.isArray(i.for_meals) ? i.for_meals : []).map((x) => str(x, 70)).slice(0, 7),
+        have_at_home: Boolean(i.have_at_home),
+      }))
+      .filter((i) => {
+        const k = i.name.toLowerCase();
+        if (!i.name || seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      })
+      .slice(0, 80);
+  });
 }

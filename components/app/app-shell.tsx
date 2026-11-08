@@ -1,24 +1,28 @@
 "use client";
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import { Bookmark, CookingPot, Refrigerator, Settings, UserRound } from "lucide-react";
+import { Bookmark, CalendarDays, CookingPot, Refrigerator, Settings, ShoppingCart, UserRound } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { cn } from "@/lib/utils";
 import { useMe } from "./me-context";
 import { ThemeSync } from "./theme";
 
 const NAV = [
-  { href: "/app", label: "Fridge", icon: Refrigerator },
-  { href: "/app/recipes", label: "Recipes", icon: CookingPot },
-  { href: "/app/saved", label: "Saved", icon: Bookmark },
-  { href: "/app/settings", label: "Settings", icon: Settings },
-  { href: "/app/account", label: "Account", icon: UserRound },
+  { href: "/app", label: "Fridge", icon: Refrigerator, phone: true },
+  { href: "/app/plan", label: "Plan", icon: CalendarDays, phone: true },
+  { href: "/app/shop", label: "Shop", icon: ShoppingCart, phone: true },
+  { href: "/app/recipes", label: "Recipes", icon: CookingPot, phone: true },
+  { href: "/app/saved", label: "Saved", icon: Bookmark, phone: false },
+  { href: "/app/settings", label: "Settings", icon: Settings, phone: false },
+  { href: "/app/account", label: "Account", icon: UserRound, phone: true },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const me = useMe();
-  const active = (href: string) => (href === "/app" ? path === "/app" : path.startsWith(href)) || (href === "/app/recipes" && path.startsWith("/r/"));
+  const active = (href: string) =>
+    (href === "/app" ? path === "/app" : path.startsWith(href)) || (href === "/app/recipes" && (path.startsWith("/r/") || path.startsWith("/app/saved")));
+  const activeDesk = (href: string) => (href === "/app" ? path === "/app" : path.startsWith(href)) || (href === "/app/recipes" && path.startsWith("/r/"));
   const pct = me.limit ? Math.min(100, (me.used / me.limit) * 100) : 0;
   return (
     <div className="min-h-[100dvh] bg-bg text-fg">
@@ -28,8 +32,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <a href="/app" className="px-2"><Logo /></a>
         <nav className="mt-8 space-y-1">
           {NAV.map((n) => (
-            <a key={n.href} href={n.href} className={cn("flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[15px] font-semibold transition", active(n.href) ? "bg-surface-2 text-fg" : "text-fg-muted hover:bg-surface-2/70 hover:text-fg")}>
-              <n.icon className={cn("h-5 w-5", active(n.href) && "text-tomato")} />
+            <a key={n.href} href={n.href} className={cn("flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[15px] font-semibold transition", activeDesk(n.href) ? "bg-surface-2 text-fg" : "text-fg-muted hover:bg-surface-2/70 hover:text-fg")}>
+              <n.icon className={cn("h-5 w-5", activeDesk(n.href) && "text-tomato")} />
               {n.label}
             </a>
           ))}
@@ -62,7 +66,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Bottom tabs (phone) */}
       <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
-        {NAV.map((n) => (
+        {NAV.filter((n) => n.phone).map((n) => (
           <a key={n.href} href={n.href} className={cn("flex flex-col items-center gap-1 py-2.5 text-[11px] font-semibold", active(n.href) ? "text-tomato" : "text-fg-muted")}>
             <n.icon className="h-5.5 w-5.5" />
             {n.label}
