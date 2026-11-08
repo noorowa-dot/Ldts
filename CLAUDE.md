@@ -278,15 +278,28 @@ every table, SQL in `supabase/migrations`) · Vercel (free) · Gemini through `l
 - `profiles.answers` is server-only (column update revoked): it holds `free_list_used` and daily list-build counters.
 - Tests: `tests/e2e.spec.ts` (funnel) + `tests/week.spec.ts` (plan → list → price check paywall), green on production.
 
-## Vouchers (free access without paying)
-- Tables `vouchers` (code **hash** only, tier, optional email lock, max uses, optional months / expiry, note; RLS on, no
-  policies) and `comp_access` (user → tier, until). Atomic SQL function `redeem_voucher` (service role only).
+## Vouchers (free access without paying) + creator network
+- Tables `vouchers` (code **hash** only, tier, optional email lock, max uses, optional months / expiry, note, `creator`,
+  `k` = the creator's Kwop link code; RLS on, no policies), `voucher_redemptions` (one per account per voucher) and
+  `comp_access` (user → tier, until). Atomic SQL function `redeem_voucher` (service role only, `#variable_conflict use_column`);
+  it never downgrades existing free access.
 - `getCtx()` takes the higher of the paid tier (Kwop) and the voucher tier; `planLabel()` shows e.g. "Chef · voucher".
   Voucher-only accounts see "Free access with a voucher" in Billing and no cancel button.
-- Redeem: Account → "Have a voucher?" (`POST /api/voucher`, 8 tries/hour/account). Codes look like `PP-XXXX-XXXX-XXXX`,
-  case and dashes don't matter.
-- Create one: `node scripts/make-voucher.mjs --tier chef|pro|starter [--email x] [--uses n] [--months n] [--expires YYYY-MM-DD] [--note "…"] --remote`
-  (prints the code once; never commit codes).
+- **Where a code can be entered** (component `VoucherField`): sign-up sheet over the recipe, `/signup`, `/login`
+  (mode "pending": kept in the `pp_voucher` cookie and redeemed by `/api/claim` / `/auth/callback` right after the account
+  exists), the paywall (above "Continue", i.e. before any card), the upgrade sheet, `/pricing`, Account → "Have a voucher?"
+  (mode "apply": `POST /api/voucher`, 8 tries/hour/account).
+- A voucher that unlocks access skips the paywall and the card: the unlock film plays and the recipe unblurs in place.
+  After `/signup` with a voucher the app opens with `?voucher=1` → `VoucherWelcome` film.
+- Creator links: `https://platepal-2.vercel.app/signup?voucher=CODE` (any page works: the proxy stores `?voucher=` for 30 days
+  and every voucher field shows it prefilled).
+- Creator credit: when the voucher has `k` and the account has none, the account's `profiles.k` becomes the creator's code, so
+  any later paid checkout is attributed to that creator in Kwop.
+- Percent-off discounts on paid plans are **not** possible from the app: Kwop's checkout API takes no coupon. Vouchers give free
+  months instead; a %-off code would need Kwop/Whop support.
+- Create: `node scripts/make-voucher.mjs --tier chef|pro|starter [--code MARIA] [--email x] [--uses n] [--months n] [--expires YYYY-MM-DD] [--creator "…"] [--k kwopcode] [--note "…"] --remote`
+  (random codes are printed once; never commit codes). Stats: `node scripts/voucher-stats.mjs --remote`.
+- Tests: `tests/voucher.spec.ts` (needs `VOUCHER_TEST_CODE`), plus local flows A–F (sheet, paywall, link, reuse, /pricing, upgrade).
 - Issued: owner account voucher (Chef, no end, 1 use, locked to the owner's email), Nov 8 2026.
 
 ## Still to do (owner action)
