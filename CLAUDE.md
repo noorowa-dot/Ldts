@@ -184,3 +184,50 @@ every table, SQL in `supabase/migrations`) · Vercel (free) · Gemini through `l
 - Example photos are illustrated shelves drawn by us (no stock photos), sent to the real engine.
 - Photos are stored in a private Supabase Storage bucket (`fridge-photos`), visible only to their owner; deletable from
   Fridge → photo menu and removed with the account. Anonymous photos are deleted after 7 days if never claimed.
+
+---
+
+## Build state (what exists, where)
+
+### Routes
+- `/` landing (try-first hero = the product) · `/r/[id]` a recipe (locked or full) · `/s/[id]` public share teaser + OG image
+- `/signup`, `/login`, `/forgot`, `/reset`, `/auth/callback` (Google + email links)
+- `/app` Fridge · `/app/recipes` · `/app/saved` · `/app/settings` · `/app/account` (plan, billing, cancel, delete)
+- `/pricing` the paywall as a page (logged-in only, never linked from the landing) · `/dashboard?paid=1&ref=` fallback return
+- `/terms`, `/privacy`, `not-found`, `error`, `global-error`, `manifest.webmanifest`, icons, `robots.txt`, `sitemap.xml`
+- API: `scan` (photo | example | list → recipe), `recipes/[id]` (GET masked view, PATCH favorite, DELETE), `recipes/[id]/remix`,
+  `claim`, `plans`, `checkout`, `checkout/confirm`, `billing/cancel`, `event`, `profile`, `me`, `account/delete`
+
+### Key files
+- `lib/kwop.ts` all Kwop calls + quotas (`QUOTAS`, `tierOf`, `unlockLines`). `getPlan()` cached 60 s.
+- `lib/ai.ts` the only Gemini code (`gemini-3.8-flash`, fallback `gemini-2.5-flash`, JSON schema output).
+- `lib/recipes.ts` identity (`getCtx`), try limits/quotas (`allowance`), saving, **server-side masking** of locked parts
+  (`mask()`: blurred parts are scrambled text of the same shape, so devtools never reveal a paid recipe).
+- `components/funnel/*` try-first engine, recipe card, sign-up sheet, paywall, Whop checkout sheet, unlock film.
+- `supabase/migrations/*` schema + RLS. `recipe_bodies` has RLS on and **no policies**: only the server reads bodies.
+
+### Quotas (server-side, per billing period; free = per 24 h)
+| | recipes | saved | diets | Shopping Saver | macros + tip + calorie target | remixes / fridge |
+|---|---|---|---|---|---|---|
+| no plan (anonymous) | 3 / day / device + IP | — | — | — | — | — |
+| no plan (account) | 3 / day | 3 | — | — | — | — |
+| Starter | 20 / month | 25 | vegetarian | — | — | — |
+| Pro | 60 / month | unlimited | all 6 | ✓ | — | 3 |
+| Chef | 150 / month | unlimited | all 6 | ✓ | ✓ | 10 |
+
+### Local development
+- `npx supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,realtime,postgres-meta` (Docker)
+- In the cloud sandbox, Node's fetch needs `NODE_USE_ENV_PROXY=1` (not needed on Vercel).
+- `DEV_PLAN_OVERRIDE=<kwop plan id>` fakes a paid plan **only** with `next dev` + local Supabase (never in production).
+- `node scripts/dev-fixture.mjs <anon-uuid>` inserts one local test recipe (refuses non-local databases).
+- `node scripts/shot.mjs / /app ...` screenshots · `npm run test:e2e` funnel test (needs GEMINI_API_KEY) ·
+  `node scripts/make-examples.mjs` / `make-icons.mjs` regenerate example shelves and icons.
+
+### Design decisions log (cont.)
+- Landing page rhythm: dark kitchen-at-night hero/VSL/how/compare/final, cream problem/features/questions.
+- Tomato darkened to #D2402A so white text on buttons passes WCAG AA (4.66:1).
+- Fraunces is loaded as a static 600 weight with `display: optional` (fast first paint, no font swap jump).
+- Animations: framer-motion `m` + `LazyMotion` (features load after first paint); `prefers-reduced-motion` respected.
+- The funnel sheets (auth, paywall, Whop, film) are code-split and preloaded when a recipe appears.
+- Ingredient stickers on photos use collision-aware placement; all items are also listed as stickers under the photo.
+- Share links (`/s/[id]`) show only the title, time and ingredient names: never the photo or the paid steps.
