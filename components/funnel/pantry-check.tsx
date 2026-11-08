@@ -130,8 +130,8 @@ export function PantryCheck({ recipe }: { recipe: RecipeView }) {
             Quick peek in your spice cabinet
           </p>
           <p className="mt-0.5 text-[14px] leading-snug text-fg-muted">
-            Your photo showed the fridge, not the cupboard. Got these? Tap to
-            tell us, and we&apos;ll remember for next time.
+            We can&apos;t see inside your cupboards, so take a quick look. Got
+            these? Tap to tell us, and we&apos;ll remember for next time.
           </p>
         </div>
       </div>
@@ -279,7 +279,7 @@ export function PantryCheck({ recipe }: { recipe: RecipeView }) {
                   <ListPlus className="h-4 w-4" />
                 )}
                 {listed === "done"
-                  ? "Added to this week's shopping list"
+                  ? "Added to your list"
                   : `Add ${out.length} to my shopping list`}
               </button>
             )}
