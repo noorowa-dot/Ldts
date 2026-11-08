@@ -291,6 +291,29 @@ export function cookFromIdea(dish: string, o: CookOptions = {}) {
 
 /* ---------------- Weekly shopping list ---------------- */
 
+/** A sane price in cents, or null (rejects 0, negatives and absurd values). */
+function cents(v: unknown): number | null {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0.05 || n > 200) return null;
+  return Math.round(n * 100);
+}
+
+/** Estimated prices for items (manual additions, older lists). Same scale as the list builder. */
+export function estimatePrices(items: { name: string; buy: string }[]): Promise<(number | null)[]> {
+  const schema = {
+    type: "object",
+    properties: { prices: { type: "array", items: { type: "number", description: PRICE_HINT } } },
+    required: ["prices"],
+  };
+  const text = ["Estimate the price of each item, in the same order:", ...items.map((i, n) => `${n + 1}. ${i.name}${i.buy ? ` (${i.buy})` : ""}`)].join("\n");
+  const system = "You estimate US grocery prices for a shopping list. One number per item, same order, US dollars. If a pack size is missing, assume the most common pack.";
+  return runJson([{ text }], { system, schema, temperature: 0.1 }, (d) => {
+    const arr = Array.isArray(d.prices) ? d.prices : [];
+    if (!arr.length) throw new AiError("failed", "No prices");
+    return items.map((_, i) => cents(arr[i]));
+  });
+}
+
 export const AISLES = ["Produce", "Meat & Fish", "Dairy & Eggs", "Bakery", "Pantry", "Frozen", "Spices & Sauces", "Other"] as const;
 export type Aisle = (typeof AISLES)[number];
 
@@ -302,7 +325,12 @@ export type ShopLine = {
   aisle: Aisle;
   for_meals: string[];
   have_at_home: boolean;
+  /** Estimated price of what `buy` says, in cents, at a major US supermarket. Null when unknown. */
+  est_cents: number | null;
 };
+
+const PRICE_HINT =
+  "Typical current shelf price in US dollars at a major US supermarket chain (Kroger / Walmart level, store brand when common) for exactly the pack in `buy`. Realistic, not a guess of 0. Number only, e.g. 3.49";
 
 const shopSchema = {
   type: "object",
@@ -319,8 +347,9 @@ const shopSchema = {
           aisle: { type: "string", enum: [...AISLES] },
           for_meals: { type: "array", items: { type: "string" }, description: "Titles of the meals that use it" },
           have_at_home: { type: "boolean", description: "true when the pantry list already covers it" },
+          est_price_usd: { type: "number", description: PRICE_HINT },
         },
-        required: ["name", "quantity", "unit", "buy", "aisle", "for_meals", "have_at_home"],
+        required: ["name", "quantity", "unit", "buy", "aisle", "for_meals", "have_at_home", "est_price_usd"],
       },
     },
   },
@@ -349,6 +378,7 @@ export function buildShoppingList(input: {
     "scale amounts to the planned servings, round up to real US store pack sizes, and never forget an ingredient.",
     "Salt, pepper, water and cooking oil are assumed at home: mark them have_at_home=true.",
     "Mark have_at_home=true only when the pantry list clearly covers it. Keep names short and plain.",
+    "For each item also give est_price_usd: the typical price of that exact pack at a major US supermarket.",
   ].join("\n");
   return runJson([{ text }], { system, schema: shopSchema, temperature: 0.2 }, (d) => {
     const items = Array.isArray(d.items) ? (d.items as Record<string, unknown>[]) : [];
@@ -363,6 +393,7 @@ export function buildShoppingList(input: {
         aisle: ((AISLES as readonly string[]).includes(String(i.aisle)) ? i.aisle : "Other") as Aisle,
         for_meals: (Array.isArray(i.for_meals) ? i.for_meals : []).map((x) => str(x, 70)).slice(0, 7),
         have_at_home: Boolean(i.have_at_home),
+        est_cents: cents(i.est_price_usd),
       }))
       .filter((i) => {
         const k = i.name.toLowerCase();

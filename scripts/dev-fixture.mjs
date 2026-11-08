@@ -34,7 +34,8 @@ if (flag === "--shop") {
     ["Ground Cumin", 2, "tsp", "1 jar", "Spices & Sauces", ["Chicken Tacos"], false],
   ];
   await db.from("shop_items").delete().eq("user_id", userId).eq("week_start", week);
-  await db.from("shop_items").insert(items.map(([name, quantity, unit, buy, aisle, for_meals, have_at_home], i) => ({ user_id: userId, week_start: week, name, quantity, unit, buy, aisle, for_meals, have_at_home, position: i, source: "plan" })));
+  const est = [699, 349, 198, 149, 99, 279, 499, 229, 178, 299];
+  await db.from("shop_items").insert(items.map(([name, quantity, unit, buy, aisle, for_meals, have_at_home], i) => ({ user_id: userId, week_start: week, name, quantity, unit, buy, aisle, for_meals, have_at_home, est_cents: est[i], position: i, source: "plan" })));
   console.log("shop", week, items.length);
   process.exit(0);
 }

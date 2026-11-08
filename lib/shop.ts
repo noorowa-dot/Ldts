@@ -17,13 +17,17 @@ export type ShopItem = {
   source: "plan" | "manual";
   have_at_home: boolean;
   checked: boolean;
+  est_cents: number | null;
 };
+
+export type Receipt = { id: string; week_start: string; store: string; total_cents: number; est_cents: number | null; created_at: string };
 
 export async function shopState(c: Ctx, week: string) {
   const uid = c.user!.id;
-  const [items, prof] = await Promise.all([
+  const [items, prof, receipts] = await Promise.all([
     db().from("shop_items").select("*").eq("user_id", uid).eq("week_start", week).order("aisle").order("position").order("created_at"),
     db().from("profiles").select("stores,zip").eq("id", uid).maybeSingle(),
+    db().from("shop_receipts").select("id,week_start,store,total_cents,est_cents,created_at").eq("user_id", uid).order("week_start", { ascending: false }).order("created_at", { ascending: false }).limit(40),
   ]);
   const list: ShopItem[] = ((items.data ?? []) as (Omit<ShopItem, "key"> & { quantity: string | number })[]).map((r) => ({
     id: r.id,
@@ -37,6 +41,7 @@ export async function shopState(c: Ctx, week: string) {
     source: r.source,
     have_at_home: r.have_at_home,
     checked: r.checked,
+    est_cents: r.est_cents ?? null,
   }));
   const p = prof.data as { stores: string[]; zip: string | null } | null;
   const q = QUOTAS[c.tier];
@@ -49,6 +54,7 @@ export async function shopState(c: Ctx, week: string) {
   return {
     week,
     items: list,
+    receipts: (receipts.data ?? []) as Receipt[],
     stores: p?.stores?.length ? p.stores : ["Kroger", "Walmart", "Aldi"],
     zip: p?.zip ?? null,
     book,

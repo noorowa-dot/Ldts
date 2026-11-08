@@ -27,7 +27,8 @@ export async function PATCH(req: Request, ctx: RouteContext<"/api/shop/[id]">) {
   if (!row) return err("not_found", "That item is gone.", 404);
   const parsed = Patch.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return err("bad_request", "Invalid change.");
-  await db().from("shop_items").update(parsed.data as never).eq("id", id).eq("user_id", c.user.id);
+  const changedPack = parsed.data.name !== undefined || parsed.data.buy !== undefined;
+  await db().from("shop_items").update({ ...parsed.data, ...(changedPack ? { est_cents: null } : {}) } as never).eq("id", id).eq("user_id", c.user.id);
   return json({ ok: true });
 }
 

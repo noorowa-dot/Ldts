@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { AnimatePresence, m } from "framer-motion";
-import { Check, ChevronDown, Home, Loader2, Lock, MapPin, Pencil, Plus, RefreshCw, Share2, ShoppingCart, Sparkles, Store, Trash2, TrendingDown, X, Zap } from "lucide-react";
+import { Check, ChevronDown, Home, Loader2, Lock, MapPin, Pencil, Plus, Receipt as ReceiptIcon, RefreshCw, Share2, ShoppingCart, Sparkles, Store, Trash2, TrendingDown, X, Zap } from "lucide-react";
 import { UnlockProvider, useUnlock } from "@/components/funnel/unlock-flow";
 import type { UpgradeFeature } from "@/components/funnel/recipe-card";
 import { cn } from "@/lib/utils";
@@ -11,7 +11,8 @@ import { PageTitle } from "./app-shell";
 import { WeekSwitcher } from "./planner";
 import { Toast, useToast } from "./recipe-detail";
 
-type Item = { id: string; name: string; key: string; quantity: number; unit: string; buy: string; aisle: string; for_meals: string[]; source: "plan" | "manual"; have_at_home: boolean; checked: boolean };
+type Item = { id: string; name: string; key: string; quantity: number; unit: string; buy: string; aisle: string; for_meals: string[]; source: "plan" | "manual"; have_at_home: boolean; checked: boolean; est_cents: number | null };
+type Receipt = { id: string; week_start: string; store: string; total_cents: number; est_cents: number | null; created_at: string };
 type State = {
   week: string;
   items: Item[];
@@ -20,14 +21,18 @@ type State = {
   book: { item_key: string; store: string; price_cents: number }[];
   live: { provider: string; store: string } | null;
   access: { shopList: boolean; priceCheck: boolean; tier: string };
+  receipts: Receipt[];
 };
 type Live = { store: string; zip: string; prices: Record<string, { price_cents: number | null; size: string | null; product: string | null }> };
 
 const AISLE_ORDER = ["Produce", "Meat & Fish", "Dairy & Eggs", "Bakery", "Pantry", "Frozen", "Spices & Sauces", "Other"];
 const fmt = (c: number) => `$${(c / 100).toFixed(2)}`;
+const PLURAL = new Set(["can", "clove", "head", "bunch", "bag", "jar", "packet", "pack", "box", "bottle", "cup", "stalk", "sprig", "slice", "piece", "loaf", "carton"]);
 const qty = (i: Item) => {
   const n = Number.isInteger(i.quantity) ? String(i.quantity) : String(Math.round(i.quantity * 100) / 100);
-  return i.unit === "count" ? n : `${n} ${i.unit}`;
+  if (i.unit === "count") return n;
+  const unit = i.quantity > 1 && PLURAL.has(i.unit) ? (i.unit.endsWith("ch") ? i.unit + "es" : i.unit + "s") : i.unit;
+  return `${n} ${unit}`;
 };
 
 export function Shop({ initialWeek }: { initialWeek: string }) {
@@ -95,7 +100,10 @@ function ShopInner({ initialWeek }: { initialWeek: string }) {
     if (!r.ok) {
       show("Couldn't save. Try again.");
       load(week);
+      return;
     }
+    // A new name or pack size means a new estimated price.
+    if (body.name !== undefined || body.buy !== undefined) post({ action: "estimate" });
   }
 
   async function remove(item: Item) {
@@ -128,6 +136,19 @@ function ShopInner({ initialWeek }: { initialWeek: string }) {
   const toBuy = items.filter((i) => !i.have_at_home).sort((a, b) => aisleIdx(a.aisle) - aisleIdx(b.aisle));
   const atHome = items.filter((i) => i.have_at_home);
   const done = toBuy.filter((i) => i.checked).length;
+  const estTotal = toBuy.reduce((a, i) => a + (i.est_cents ?? 0), 0);
+  const estCart = toBuy.filter((i) => i.checked).reduce((a, i) => a + (i.est_cents ?? 0), 0);
+  const unpriced = toBuy.filter((i) => i.est_cents == null).length;
+  const allInCart = toBuy.length > 0 && done === toBuy.length;
+
+  // Lists built before automatic prices (or new items): fill in the estimates once.
+  const estimating = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!st || !unpriced || estimating.current === st.week) return;
+    estimating.current = st.week;
+    post({ action: "estimate" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [st?.week, unpriced]);
 
   return (
     <div>
@@ -179,6 +200,16 @@ function ShopInner({ initialWeek }: { initialWeek: string }) {
                 </p>
                 <p className="text-[12px] text-fg-muted">{atHome.length ? `${atHome.length} already at home` : "Built from your planned meals"}</p>
               </div>
+              <div className="text-right" data-testid="est-total">
+                <p className="font-serif text-[26px] font-semibold leading-none tabular-nums">{estTotal ? `~${fmt(estTotal)}` : "–"}</p>
+                <p className="mt-1 text-[11px] text-fg-muted">{unpriced && estTotal ? `estimated · ${unpriced} item${unpriced === 1 ? "" : "s"} pending` : "estimated shop"}</p>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-[12px] text-fg-muted">
+                {done > 0 && estTotal ? <>In your cart so far: <b className="text-fg">~{fmt(estCart)}</b> · </> : null}
+                Typical US supermarket prices, estimated by AI. Your store may differ.
+              </p>
               <div className="flex flex-wrap gap-1.5">
                 <button type="button" onClick={build} disabled={building} className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full border border-border px-3 text-[13px] font-semibold hover:bg-surface-2 disabled:opacity-60" data-testid="rebuild">
                   {building ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Rebuild
@@ -243,6 +274,14 @@ function ShopInner({ initialWeek }: { initialWeek: string }) {
                   </section>
                 );
               })}
+
+              <ShopDone
+                st={st}
+                allInCart={allInCart}
+                estTotal={estTotal}
+                onSave={(store, total) => post({ action: "receipt", store, total_cents: total, est_cents: estTotal || null })}
+                onDelete={(id) => post({ action: "delete_receipt", id })}
+              />
 
               {atHome.length > 0 && (
                 <section className="mb-6">
@@ -323,14 +362,19 @@ function ItemRow({ item, st, onToggle, onHome, onRemove, onSave }: { item: Item;
               {item.name} {item.buy && <span className="font-normal text-fg-muted">· {item.buy}</span>}
             </p>
             <p className="text-[12px] text-fg-muted">
+              {item.est_cents != null && !cheapest && (
+                <span className="mr-1.5 rounded-md bg-surface-2 px-1.5 py-0.5 font-mono text-[12px] font-medium text-fg" title="Estimated price" data-testid="est-chip">
+                  ~{fmt(item.est_cents)}
+                </span>
+              )}
               {item.source === "manual" ? "Added by you" : `Needs ${qty(item)}${item.for_meals.length ? ` · ${item.for_meals.slice(0, 3).join(", ")}` : ""}`}
             </p>
           </div>
-          {cheapest && (
+          {cheapest ? (
             <span className="shrink-0 rounded-full bg-lime/70 px-2 py-0.5 font-mono text-[11px] font-medium text-ink" title={`Cheapest at ${cheapest.store}`}>
               {fmt(cheapest.price_cents)} · {cheapest.store}
             </span>
-          )}
+) : null}
           <div className="flex shrink-0 items-center">
             <button type="button" aria-label="Edit" onClick={() => setEditing(true)} className="grid h-8 w-8 cursor-pointer place-items-center rounded-full text-fg-muted hover:bg-surface-2">
               <Pencil className="h-3.5 w-3.5" />
@@ -622,5 +666,111 @@ function PriceCheckPreview({ items, stores }: { items: Item[]; stores: string[] 
         </div>
       ))}
     </div>
+  );
+}
+
+/* ---------------- After the shop: what did it really cost? ---------------- */
+
+function ShopDone({ st, allInCart, estTotal, onSave, onDelete }: { st: State; allInCart: boolean; estTotal: number; onSave: (store: string, cents: number) => Promise<unknown>; onDelete: (id: string) => void }) {
+  const thisWeek = st.receipts.filter((r) => r.week_start === st.week);
+  const [open, setOpen] = React.useState(false);
+  const [store, setStore] = React.useState(st.stores[0] ?? "");
+  const [amount, setAmount] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const showForm = open || (allInCart && !thisWeek.length);
+  const paid = thisWeek.reduce((a, r) => a + r.total_cents, 0);
+
+  // Last weeks, for a simple spending history.
+  const weeks = Array.from(new Set(st.receipts.map((r) => r.week_start))).slice(0, 6);
+  const perWeek = weeks.map((w) => ({ w, total: st.receipts.filter((r) => r.week_start === w).reduce((a, r) => a + r.total_cents, 0) }));
+  const max = Math.max(1, ...perWeek.map((x) => x.total));
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    const n = Math.round(parseFloat(amount.replace(/[^0-9.]/g, "")) * 100);
+    if (!Number.isFinite(n) || n <= 0) return;
+    setBusy(true);
+    await onSave(store.trim(), n);
+    setBusy(false);
+    setAmount("");
+    setOpen(false);
+  }
+
+  return (
+    <section className="mb-5" data-testid="shop-done">
+      {allInCart && (
+        <p className="mb-3 flex items-center gap-2 rounded-2xl bg-olive-soft px-4 py-3 text-[15px] font-semibold text-olive">
+          <Check className="h-5 w-5" strokeWidth={3} /> Everything&apos;s in the cart. Nice work!
+        </p>
+      )}
+
+      {thisWeek.length > 0 && (
+        <div className="recipe-card mb-3 p-4">
+          <p className="flex items-center gap-2 text-[14px] font-semibold">
+            <ReceiptIcon className="h-4 w-4" /> You spent {fmt(paid)} this week
+          </p>
+          {estTotal > 0 && (
+            <p className="mt-0.5 text-[13px] text-fg-muted" data-testid="paid-vs-est">
+              {paid <= estTotal ? `${fmt(estTotal - paid)} under the estimate. Nicely shopped.` : `${fmt(paid - estTotal)} over the estimate (~${fmt(estTotal)}).`}
+            </p>
+          )}
+          <ul className="mt-2 space-y-1">
+            {thisWeek.map((r) => (
+              <li key={r.id} className="flex items-center justify-between rounded-xl bg-surface-2 px-3 py-2 text-[14px]">
+                <span>
+                  {r.store || "Shop"} · <b>{fmt(r.total_cents)}</b>
+                </span>
+                <button type="button" aria-label="Remove" onClick={() => onDelete(r.id)} className="grid h-7 w-7 cursor-pointer place-items-center rounded-full text-fg-muted hover:bg-surface hover:text-tomato-deep">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {showForm ? (
+        <form onSubmit={save} className="recipe-card p-4" data-testid="receipt-form">
+          <p className="text-[15px] font-semibold">{thisWeek.length ? "Add another receipt" : "Done shopping? What did you pay?"}</p>
+          <p className="text-[12px] text-fg-muted">Type the total from your receipt. Platepal tracks your real grocery spend, week by week.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <label className="flex h-12 min-w-0 flex-1 items-center gap-1 rounded-2xl border border-border bg-surface px-4 focus-within:border-tomato">
+              <span className="text-fg-muted">$</span>
+              <input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" placeholder={estTotal ? (estTotal / 100).toFixed(2) : "0.00"} aria-label="Total paid" className="w-full min-w-0 bg-transparent font-mono text-[17px] tabular-nums outline-none" data-testid="receipt-amount" />
+            </label>
+            <input value={store} onChange={(e) => setStore(e.target.value)} list="pp-stores" maxLength={30} placeholder="Store" aria-label="Store" className="h-12 w-36 rounded-2xl border border-border bg-surface px-4 text-[15px] outline-none focus:border-tomato" />
+            <datalist id="pp-stores">
+              {st.stores.map((s) => (
+                <option key={s} value={s} />
+              ))}
+            </datalist>
+            <button type="submit" disabled={busy || !amount} className="inline-flex h-12 cursor-pointer items-center gap-2 rounded-full bg-tomato px-5 font-semibold text-white disabled:opacity-50" data-testid="receipt-save">
+              {busy && <Loader2 className="h-4 w-4 animate-spin" />} Save
+            </button>
+          </div>
+        </form>
+      ) : (
+        <button type="button" onClick={() => setOpen(true)} className="inline-flex cursor-pointer items-center gap-1.5 text-[14px] font-semibold text-tomato hover:underline" data-testid="receipt-open">
+          <ReceiptIcon className="h-4 w-4" /> {thisWeek.length ? "Add another receipt" : "Done shopping? Add what you paid"}
+        </button>
+      )}
+
+      {perWeek.length > 1 && (
+        <div className="recipe-card mt-3 p-4" data-testid="spend-history">
+          <p className="text-[14px] font-semibold">Your grocery spend</p>
+          <ul className="mt-3 space-y-1.5">
+            {perWeek.map((x) => (
+              <li key={x.w} className="grid grid-cols-[72px_1fr_64px] items-center gap-2 text-[12px]">
+                <span className="text-fg-muted">{weekLabel(x.w)}</span>
+                <span className="h-2 overflow-hidden rounded-full bg-surface-2">
+                  <span className="block h-full rounded-full bg-olive" style={{ width: `${(x.total / max) * 100}%` }} />
+                </span>
+                <span className="text-right font-mono tabular-nums">{fmt(x.total)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
   );
 }

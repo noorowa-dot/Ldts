@@ -6,7 +6,7 @@ import { db } from "@/lib/supabase/admin";
 import { pantry, weekMeals } from "@/lib/plan";
 import { shopState } from "@/lib/shop";
 import { itemKey, parseWeek } from "@/lib/week";
-import { AiError, aiConfigured, buildShoppingList } from "@/lib/ai";
+import { AiError, aiConfigured, buildShoppingList, estimatePrices } from "@/lib/ai";
 import { err, json } from "@/lib/http";
 import type { RecipeBody } from "@/lib/types";
 
@@ -22,7 +22,24 @@ const Body = z.discriminatedUnion("action", [
   z.object({ action: z.literal("build"), week: z.string() }),
   z.object({ action: z.literal("add"), week: z.string(), name: z.string().trim().min(1).max(60), quantity: z.number().min(0).max(999).optional(), unit: z.string().trim().max(16).optional() }),
   z.object({ action: z.literal("clear_checked"), week: z.string() }),
+  z.object({ action: z.literal("estimate"), week: z.string() }),
+  z.object({ action: z.literal("receipt"), week: z.string(), store: z.string().trim().max(30).default(""), total_cents: z.number().int().min(0).max(10_000_000), est_cents: z.number().int().min(0).max(10_000_000).nullable().optional() }),
+  z.object({ action: z.literal("delete_receipt"), week: z.string(), id: z.string().uuid() }),
 ]);
+
+/** Fill in estimated prices for items that have none (manual additions, older lists). Best effort. */
+async function estimateMissing(uid: string, week: string) {
+  if (!aiConfigured()) return;
+  const { data } = await db().from("shop_items").select("id,name,buy").eq("user_id", uid).eq("week_start", week).is("est_cents", null).limit(40);
+  const rows = (data ?? []) as { id: string; name: string; buy: string }[];
+  if (!rows.length) return;
+  try {
+    const prices = await estimatePrices(rows.map((r) => ({ name: r.name, buy: r.buy })));
+    await Promise.all(rows.map((r, i) => (prices[i] != null ? db().from("shop_items").update({ est_cents: prices[i] } as never).eq("id", r.id).eq("user_id", uid) : null)));
+  } catch (e) {
+    console.error("[shop] estimate", (e as Error).message);
+  }
+}
 
 const BUILDS_PER_DAY = 15;
 
@@ -37,6 +54,21 @@ export async function POST(req: Request) {
   if (parsed.data.action === "add") {
     const { name, quantity, unit } = parsed.data;
     await db().from("shop_items").insert({ user_id: uid, week_start: week, name, quantity: quantity ?? 1, unit: unit || "count", buy: "", aisle: "Other", source: "manual" } as never);
+    await estimateMissing(uid, week);
+    return json(await shopState(c, week));
+  }
+  if (parsed.data.action === "estimate") {
+    await estimateMissing(uid, week);
+    return json(await shopState(c, week));
+  }
+  if (parsed.data.action === "receipt") {
+    const { store, total_cents, est_cents } = parsed.data;
+    await db().from("shop_receipts").insert({ user_id: uid, week_start: week, store, total_cents, est_cents: est_cents ?? null } as never);
+    track("feature_used", c.user.email, "shop_receipt");
+    return json(await shopState(c, week));
+  }
+  if (parsed.data.action === "delete_receipt") {
+    await db().from("shop_receipts").delete().eq("id", parsed.data.id).eq("user_id", uid);
     return json(await shopState(c, week));
   }
   if (parsed.data.action === "clear_checked") {
@@ -100,6 +132,7 @@ export async function POST(req: Request) {
           aisle: l.aisle,
           for_meals: l.for_meals,
           have_at_home: l.have_at_home,
+          est_cents: l.est_cents,
           checked: ticked.has(l.name.toLowerCase()),
           source: "plan",
           position: i,
@@ -110,6 +143,7 @@ export async function POST(req: Request) {
       .update({ answers: { ...answers, list_builds: { day: today, n: n + 1 }, ...(freeList ? { free_list_month: month, free_list_count: freeUsed + 1 } : {}) } } as never)
       .eq("id", uid);
     track("feature_used", c.user.email, "shopping_list");
+    await estimateMissing(uid, week); // manual items kept from before, or any line the model left without a price
     return json(await shopState(c, week));
   } catch (e) {
     console.error("[shop] build", e);
