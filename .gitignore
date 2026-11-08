@@ -14,3 +14,8 @@ shots/
 next-env.d.ts
 *.tsbuildinfo
 supabase/.temp/
+/.pnp
+.pnp.*
+/build
+*.pem
+npm-debug.log*

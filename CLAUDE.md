@@ -92,13 +92,13 @@ No account is needed to see the teaser. Tries without an account: **3 a day per 
    - **"Your Lemon-Garlic Chicken Skillet is ready."**
    - Personal line: "Made from your eggs, spinach and feta, in 20 minutes. Pick a plan to cook it tonight."
    - Plans (radio cards, per day big), Pro pre-selected with "Most popular".
-   - "Continue with Home Cook" · "$9.00 due today, then every month · Cancel anytime"
+   - "Continue with Pro" · "$9.00 due today, then every month · Cancel anytime"
    - "Secure payment, processed by Whop" · chips Whop · Card
-   - "What you unlock with Home Cook" (checks)
+   - "What you unlock with Pro" (checks)
    - 3 questions: "Will it work with my fridge?", "Can I cancel?", "What happens right after I pay?"
    - Small print: renews automatically until canceled · prices in USD.
 6. **Checkout sheet** over the paywall: Whop embedded checkout (`#whop-checkout`), "Secure payment by Whop · Cancel in 1 click".
-7. **Unlock film** (4–6 s, 3 scenes, skippable): "You're on Home Cook" → 3 icons (Full recipes · Dietary filters · Shopping Saver)
+7. **Unlock film** (4–6 s, 3 scenes, skippable): "You're on Pro" → 3 icons (Full recipes · Dietary filters · Shopping Saver)
    → "Let's go". Then the recipe unblurs in place.
 8. A returning visitor lands where they stopped: a locked recipe and no plan → `/r/[id]` with the paywall bar; paid → `/app`.
 
@@ -107,15 +107,15 @@ No account is needed to see the teaser. Tries without an account: **3 a day per 
 - Personal line: "Made from your {3 detected items}, in {time} minutes. Pick a plan to cook it tonight."
 - Sticky bar after ✕: "See my full recipe · {per day} / day".
 
-### Plans (Kwop holds the prices; the app never hardcodes them). Working names (final after the owner picks prices)
+### Plans (Kwop holds the prices; the app never hardcodes them). Owner chose "keep": Starter $5 · Pro $9 · Chef $15 a month (yearly −20 %: $48 · $86 · $144)
 Quotas are counted on the server per billing period (`usage` table, period starting at the plan's `until` minus 1 period,
 falling back to the calendar month).
 
 | Plan (Kwop name) | Tag (who it is for) | Recipes a month | Saved recipes | Dietary filters | Shopping Saver | Macros + chef tips | Remix (other ideas) |
 |---|---|---|---|---|---|---|---|
-| **Weeknight** | "For a few rescue dinners a week" | 20 | 25 | Vegetarian only | — | — | — |
-| **Home Cook** (Most popular) | "For people who cook most nights" | 60 | Unlimited | All 6 (vegan, vegetarian, keto, gluten-free, dairy-free, high-protein) | ✓ | — | 3 per recipe |
-| **Chef** | "For food lovers who cook every day" | 150 | Unlimited | All 6 + calorie target | ✓ | ✓ (macros per serving, chef's tip) | 10 per recipe |
+| **Starter** (Kwop 1552) | "For a few rescue dinners a week" | 20 | 25 | Vegetarian only | — | — | — |
+| **Pro** (Kwop 1553, Most popular) | "For people who cook most nights" | 60 | Unlimited | All 6 (vegan, vegetarian, keto, gluten-free, dairy-free, high-protein) | ✓ | — | 3 per recipe |
+| **Chef** (Kwop 1554) | "For food lovers who cook every day" | 150 | Unlimited | All 6 + calorie target | ✓ | ✓ (macros per serving, chef's tip) | 10 per recipe |
 
 Without a plan: the teaser only (3 tries a day without an account, 3 a day with a free account).
 
