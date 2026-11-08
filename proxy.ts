@@ -12,6 +12,9 @@ export async function proxy(request: NextRequest) {
   // Kwop tracked link: ?k=<code> (letters and digits, up to 12)
   const k = url.searchParams.get("k");
   if (k && /^[A-Za-z0-9]{1,12}$/.test(k)) cookieJar.push({ name: "kwop_k", value: k, maxAge: MONTH, httpOnly: false });
+  // A creator's voucher link: ?voucher=CODE (redeemed right after sign-up, prefilled in every voucher field)
+  const voucher = url.searchParams.get("voucher");
+  if (voucher && /^[A-Za-z0-9-]{3,40}$/.test(voucher)) cookieJar.push({ name: "pp_voucher", value: voucher.toUpperCase(), maxAge: MONTH, httpOnly: false });
   // Plan the visitor came for (from the Kwop page buttons)
   const plan = url.searchParams.get("plan");
   if (plan && plan.length <= 40) cookieJar.push({ name: "pp_plan", value: plan.replace(/[^\w \-]/g, ""), maxAge: MONTH, httpOnly: false });

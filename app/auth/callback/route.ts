@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { claimAnon } from "@/lib/recipes";
 import { db } from "@/lib/supabase/admin";
 import { track } from "@/lib/kwop";
+import { redeemVoucher } from "@/lib/vouchers";
 
 function safeNext(n: string | null) {
   return n && n.startsWith("/") && !n.startsWith("//") ? n : "/app";
@@ -35,7 +36,12 @@ export async function GET(req: Request) {
       if (prof?.k) delete update.k;
       if (Object.keys(update).length) await db().from("profiles").update(update as never).eq("id", data.user.id);
       if (!prof || Date.now() - new Date(prof.created_at).getTime() < 10 * 60_000) track("signup", data.user.email);
-      return NextResponse.redirect(new URL(next, url.origin));
+      const pending = jar.get("pp_voucher")?.value;
+      let unlocked = false;
+      if (pending) unlocked = (await redeemVoucher({ id: data.user.id, email: data.user.email.toLowerCase() }, decodeURIComponent(pending))).ok;
+      const res = NextResponse.redirect(new URL(next + (unlocked ? (next.includes("?") ? "&" : "?") + "voucher=1" : ""), url.origin));
+      if (pending) res.cookies.delete("pp_voucher");
+      return res;
     }
   }
   return NextResponse.redirect(new URL("/login?error=link", url.origin));

@@ -6,6 +6,7 @@ import { LogoMark } from "@/components/ui/logo";
 import dynamic from "next/dynamic";
 import type { CheckoutTarget, PublicPlan } from "./paywall";
 import { usePlans } from "./plans";
+import { VoucherField, type VoucherOk } from "./voucher-field";
 
 // Loaded on first use, so the landing page stays light (Supabase auth, Whop and the film are not needed to see a recipe).
 const AuthForm = dynamic(() => import("./auth-form").then((m) => m.AuthForm), { ssr: false, loading: () => <div className="skeleton h-56 w-full" /> });
@@ -83,6 +84,17 @@ export function UnlockProvider({ children, recipe, signedIn, tier, currentPlanId
   const paywallScroll = React.useRef<HTMLDivElement>(null);
   const [authedHere, setAuthedHere] = React.useState(false);
   const isSignedIn = signedIn || authedHere;
+
+  const voucherUnlocked = React.useCallback(
+    async (r: VoucherOk) => {
+      setStep(null);
+      setSession(null);
+      setFilm({ planName: r.label, lines: r.unlock });
+      event("aha", "voucher");
+      await onUnlocked?.({ planName: r.label, tier: r.tier });
+    },
+    [onUnlocked]
+  );
 
   const openPaywall = React.useCallback(() => {
     setNotice(null);
@@ -194,10 +206,13 @@ export function UnlockProvider({ children, recipe, signedIn, tier, currentPlanId
           <div className="mt-6">
             <AuthForm
               next={returnPath}
-              onDone={async () => {
+              onDone={async (claim) => {
                 setAuthedHere(true);
                 await onAuthed?.();
+                // A voucher typed at sign-up (or from a creator's link) can unlock everything: then no paywall, no card.
+                if (claim?.voucher?.ok) return voucherUnlocked(claim.voucher);
                 openPaywall();
+                if (claim?.voucher && !claim.voucher.ok) setNotice(`Voucher: ${claim.voucher.message}`);
               }}
             />
           </div>
@@ -206,7 +221,7 @@ export function UnlockProvider({ children, recipe, signedIn, tier, currentPlanId
 
       {/* 2. Paywall sheet over the recipe */}
       <Sheet open={step === "paywall"} onClose={() => setStep(null)} mode="full" label="Choose your plan" testId="paywall-sheet" scrollRef={paywallScroll}>
-        <PaywallContent plans={plans} title={title} personal={personal} onContinue={(p, per) => startCheckout(p, per)} busy={busy} notice={notice} scrollRoot={paywallScroll} />
+        <PaywallContent plans={plans} title={title} personal={personal} onContinue={(p, per) => startCheckout(p, per)} busy={busy} notice={notice} scrollRoot={paywallScroll} onVoucher={voucherUnlocked} />
       </Sheet>
 
       {/* 3. Checkout sheet over the paywall */}
@@ -249,6 +264,9 @@ export function UnlockProvider({ children, recipe, signedIn, tier, currentPlanId
                 <span>
                   <b className="font-serif text-2xl">{nextPlan.per_day.replace(/\s*\/\s*day/i, "")}</b> <span className="text-sm text-fg-muted">/ day</span>
                 </span>
+              </div>
+              <div className="mt-5 rounded-2xl border border-dashed border-border px-4 py-3">
+                <VoucherField mode="apply" onApplied={voucherUnlocked} />
               </div>
               <button
                 type="button"

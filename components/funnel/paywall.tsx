@@ -3,6 +3,7 @@ import * as React from "react";
 import { AnimatePresence, m, useReducedMotion } from "framer-motion";
 import { Check, ChevronDown, CreditCard, Loader2, ShieldCheck, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { VoucherField, type VoucherOk } from "./voucher-field";
 
 import { usePlans } from "./plans";
 export { usePlans };
@@ -31,10 +32,12 @@ type ContentProps = {
   excludeId?: number | null;
   scrollRoot?: React.RefObject<HTMLDivElement | null>;
   sticky?: boolean;
+  /** A voucher was applied: free access, no card. */
+  onVoucher?: (r: VoucherOk) => void;
 };
 
 /** The paywall body, shared by the sheet over the recipe and the /pricing page. */
-export function PaywallContent({ plans, title, personal, onContinue, busy, notice, excludeId, scrollRoot, sticky = true }: ContentProps) {
+export function PaywallContent({ plans, title, personal, onContinue, busy, notice, excludeId, scrollRoot, sticky = true, onVoucher }: ContentProps) {
   const [period, setPeriod] = React.useState<"month" | "year">("month");
   const list = React.useMemo(() => (plans ?? []).filter((p) => p.id !== excludeId), [plans, excludeId]);
   const [selected, setSelected] = React.useState<number | null>(null);
@@ -146,7 +149,11 @@ export function PaywallContent({ plans, title, personal, onContinue, busy, notic
         {renderPlans("plan")}
       </div>
 
-      <div ref={ctaRef} className="mt-6">
+      <div className="mt-5 rounded-2xl border border-dashed border-border px-4 py-3">
+        <VoucherField mode="apply" onApplied={onVoucher} />
+      </div>
+
+      <div ref={ctaRef} className="mt-5">
         <button
           type="button"
           disabled={busy || !sel}

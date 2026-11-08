@@ -4,6 +4,7 @@ import { getUser } from "@/lib/supabase/server";
 import { db } from "@/lib/supabase/admin";
 import { track } from "@/lib/kwop";
 import { err, json } from "@/lib/http";
+import { redeemVoucher, type RedeemResult } from "@/lib/vouchers";
 
 /** Called right after sign-up / log-in: attach anonymous tries and attribution to the account. */
 export async function POST() {
@@ -30,6 +31,15 @@ export async function POST() {
   const isNew = !p || Date.now() - new Date(p.created_at).getTime() < 10 * 60_000;
   if (isNew) track("signup", user.email);
 
+  // A voucher typed in the sign-up form or brought by a creator's link (?voucher=CODE).
+  let voucher: RedeemResult | null = null;
+  const pending = jar.get("pp_voucher")?.value;
+  if (pending) {
+    voucher = await redeemVoucher(user, decodeURIComponent(pending));
+    jar.delete("pp_voucher");
+    if (voucher.ok) track("feature_used", user.email, "voucher");
+  }
+
   const { data: latest } = await db().from("recipes").select("id").eq("user_id", user.id).order("created_at", { ascending: false }).limit(1);
-  return json({ ok: true, claimed, latest: (latest?.[0] as { id: string } | undefined)?.id ?? null });
+  return json({ ok: true, claimed, latest: (latest?.[0] as { id: string } | undefined)?.id ?? null, voucher });
 }

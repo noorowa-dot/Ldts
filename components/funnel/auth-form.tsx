@@ -5,6 +5,7 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 import { GoogleButton } from "@/components/ui/google-button";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { VoucherField, type VoucherOk } from "./voucher-field";
 
 const GOOGLE = process.env.NEXT_PUBLIC_GOOGLE_ENABLED === "1";
 
@@ -13,7 +14,7 @@ type Props = {
   /** Where Google sends the person back (path + query). */
   next: string;
   /** Called once a session exists (email/password). */
-  onDone: (claim: { claimed?: number; latest?: string | null }) => void | Promise<void>;
+  onDone: (claim: { claimed?: number; latest?: string | null; voucher?: VoucherOk | { ok: false; message: string } | null }) => void | Promise<void>;
   submitLabel?: string;
 };
 
@@ -108,7 +109,7 @@ export function AuthForm({ initialMode = "signup", next, onDone, submitLabel }: 
         <div>
           <label htmlFor="password" className="sr-only">Password</label>
           <div className="relative">
-            <Input id="password" type={show ? "text" : "password"} autoComplete={mode === "signup" ? "new-password" : "current-password"} placeholder={mode === "signup" ? "Create a password (8+ characters)" : "Your password"} value={password} onChange={(e) => setPassword(e.target.value)} className="pr-12" aria-invalid={error?.field === "password"} data-testid="password" />
+            <Input id="password" type={show ? "text" : "password"} autoComplete={mode === "signup" ? "new-password" : "current-password"} placeholder={mode === "signup" ? "Password (8+ characters)" : "Your password"} value={password} onChange={(e) => setPassword(e.target.value)} className="pr-12" aria-invalid={error?.field === "password"} data-testid="password" />
             <button type="button" onClick={() => setShow((s) => !s)} aria-label={show ? "Hide password" : "Show password"} className="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 cursor-pointer place-items-center rounded-full text-fg-muted hover:bg-surface-2">
               {show ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
             </button>
@@ -116,6 +117,9 @@ export function AuthForm({ initialMode = "signup", next, onDone, submitLabel }: 
           {error?.field === "password" && <p className="mt-1.5 text-sm text-tomato-deep">{error.text}</p>}
         </div>
         {error?.field === "form" && <p className="text-sm text-tomato-deep">{error.text}</p>}
+        <div className="py-1">
+          <VoucherField mode="pending" />
+        </div>
         <Button type="submit" size="lg" className="w-full" disabled={busy} data-testid="auth-submit">
           {busy && <Loader2 className="h-5 w-5 animate-spin" />}
           {submitLabel ?? (mode === "signup" ? "Create my free account" : "Log in")}

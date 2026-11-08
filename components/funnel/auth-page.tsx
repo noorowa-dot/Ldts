@@ -27,7 +27,10 @@ export function AuthPage({ mode, next, notice }: { mode: "signup" | "login"; nex
               initialMode={mode}
               next={next}
               onDone={async (r) => {
-                if (next === "/app" && r?.latest && r?.claimed) router.replace(`/r/${r.latest}?unlock=1`);
+                const v = r?.voucher?.ok ? "voucher=1" : "";
+                const withV = (u: string) => (v ? u + (u.includes("?") ? "&" : "?") + v : u);
+                if (next === "/app" && r?.latest && r?.claimed) router.replace(withV(`/r/${r.latest}?unlock=1`));
+                else if (v) router.replace(withV(next));
                 else router.replace(next);
                 router.refresh();
               }}

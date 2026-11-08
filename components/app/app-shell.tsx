@@ -6,6 +6,7 @@ import { Logo } from "@/components/ui/logo";
 import { cn } from "@/lib/utils";
 import { useMe } from "./me-context";
 import { ThemeSync } from "./theme";
+import { VoucherWelcome } from "./voucher-welcome";
 
 const NAV = [
   { href: "/app", label: "Fridge", icon: Refrigerator, phone: true },
@@ -27,6 +28,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-[100dvh] bg-bg text-fg">
       <ThemeSync />
+      <VoucherWelcome />
       {/* Sidebar (computer) */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] flex-col border-r border-border bg-surface px-4 py-6 md:flex">
         <a href="/app" className="px-2"><Logo /></a>

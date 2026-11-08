@@ -49,7 +49,15 @@ export function PricingClient() {
         <a href="/app" className="inline-flex items-center gap-1.5 px-5 pt-5 text-[14px] font-semibold text-fg-muted hover:text-fg">
           <ArrowLeft className="h-4 w-4" /> Back to my kitchen
         </a>
-        <PaywallContent plans={plans} title="Cook every night with Platepal." personal="Every amount, every step, from what's already in your fridge." onContinue={go} busy={busy} notice={notice} />
+        <PaywallContent
+          plans={plans}
+          title="Cook every night with Platepal."
+          personal="Every amount, every step, from what's already in your fridge."
+          onContinue={go}
+          busy={busy}
+          notice={notice}
+          onVoucher={(r) => setFilm({ name: r.label, lines: r.unlock })}
+        />
       </div>
       <Sheet open={!!target} onClose={() => { setTarget(null); setSession(null); }} label="Secure checkout" testId="checkout" width={520}>
         {target && <CheckoutBody target={target} session={session} onPaid={paid} />}
