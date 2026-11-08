@@ -60,7 +60,8 @@ test("try-first funnel, from the landing page to the checkout sheet", async ({ p
   await page.goto("/app/account");
   await expect(page.getByTestId("account-email")).toContainText("@platepal-test.dev");
   await page.goto("/app/recipes");
-  await expect(page.getByText(title)).toBeVisible();
+  // A link to the recipe (ARIA query: ignores the hidden copy React keeps while streaming the list in).
+  await expect(page.getByRole("link", { name: new RegExp(title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) })).toBeVisible();
 
   expect(errors).toEqual([]);
 });

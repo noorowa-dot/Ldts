@@ -245,10 +245,19 @@ every table, SQL in `supabase/migrations`) · Vercel (free) · Gemini through `l
   RLS cross-user test (no reads/updates/deletes of another user's rows, no client inserts, bodies server-only);
   Lighthouse mobile on `/`: 97 / 100 / 100 / 100.
 
+## AI in production (Gemini)
+- `GEMINI_API_KEY` is set in Vercel (Production). Models: `GEMINI_MODEL=gemini-3.8-flash,gemini-3.5-flash-lite,gemini-3.1-flash-lite`.
+- `lib/ai.ts` hedges: the newest Flash starts first; if it has not answered after 6 s (`GEMINI_HEDGE_MS`) or fails, Flash-Lite
+  starts and the first good answer wins. One attempt per model (the SDK's default 5 retries outlasted the function).
+  Thinking level LOW, dropped automatically for models without thinking. Functions: `maxDuration = 120`.
+- Observed Nov 8: gemini-3.8-flash answered 503 "high demand", then 429 "quota exceeded" on the free key after a few calls;
+  gemini-2.5-flash is closed to new keys (404); `gemini-flash-lite-latest` is not found. Flash-Lite answers in ~3 s.
+  → For real traffic, turn on billing for the key (aistudio.google.com → Billing) so the newest model is not rate-limited.
+- Measured live: photo → recipe in ~9 s. E2E against production: 11 of 12 runs green (3 runs × phone + computer, twice);
+  the single failure was on an external step (no server error logged).
+
 ## Still to do (owner action)
-- **GEMINI_API_KEY**: add it in Vercel → platepal-2 → Settings → Environment Variables (Production), then redeploy.
-  Until then `/api/scan` answers `ai_off` ("The AI chef is warming up"). Then run `npm run test:e2e` against production
-  (`BASE_URL=https://platepal-2.vercel.app`) 3× on phone + computer.
 - **Google sign-in**: Google OAuth client → redirect URI `https://ftqyrztnxzvvrcfdjkhh.supabase.co/auth/v1/callback`;
   Client ID/secret entered in Supabase → Authentication → Providers → Google; then set NEXT_PUBLIC_GOOGLE_ENABLED=1 and redeploy.
   The Google button stays hidden until then (never a broken button).
+- **Gemini billing** (recommended before promoting): see above.
