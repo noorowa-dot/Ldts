@@ -206,14 +206,26 @@ every table, SQL in `supabase/migrations`) · Vercel (free) · Gemini through `l
 - `components/funnel/*` try-first engine, recipe card, sign-up sheet, paywall, Whop checkout sheet, unlock film.
 - `supabase/migrations/*` schema + RLS. `recipe_bodies` has RLS on and **no policies**: only the server reads bodies.
 
-### Quotas (server-side, per billing period; free = per 24 h)
-| | recipes | saved | diets | Shopping Saver | macros + tip + calorie target | remixes / fridge |
-|---|---|---|---|---|---|---|
-| no plan (anonymous) | 3 / day / device + IP | — | — | — | — | — |
-| no plan (account) | 3 / day | 3 | — | — | — | — |
-| Starter | 20 / month | 25 | vegetarian | — | — | — |
-| Pro | 60 / month | unlimited | all 6 | ✓ | — | 3 |
-| Chef | 150 / month | unlimited | all 6 | ✓ | ✓ | 10 |
+### Quotas (server-side; source of truth: `lib/plan-config.ts`, also rendered as the "Compare all plans" table)
+| | No account | Free account | Starter | Pro | Chef |
+|---|---|---|---|---|---|
+| Recipe previews (photo → teaser) | 3 / day | 5 / day | ✓ | ✓ | ✓ |
+| Full recipes | — | 1 / week (chosen on the paywall) | 20 / month | 60 / month | 150 / month |
+| Step checklist + "Bon appétit" popup | — | on unlocked recipes | ✓ | ✓ | ✓ |
+| Fix the ingredients & remake | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Saved recipes | — | 5 | 25 | unlimited | unlimited |
+| Week planner | — | 3 dinners | every dinner (7) | lunch + dinner (14) | lunch + dinner (14) |
+| Smart shopping list | — | 1 / month | unlimited (15 builds/day) | unlimited | unlimited |
+| Dietary filters | — | — | vegetarian | all 6 | all 6 + calorie target |
+| Remix | — | — | 1 / recipe | 3 / recipe | 10 / recipe |
+| Shopping Saver | — | — | — | ✓ | ✓ |
+| Price check | — | — | — | ✓ | ✓ |
+| Macros + chef's tip | — | — | — | — | ✓ |
+- Free weekly recipe: `free_unlocks` table, rolling 7 days, `POST /api/recipes/[id]/free`; the paywall offers it under
+  "Continue" ("Not today? Use your free recipe of the week") or shows when the next one is ready. It unlocks amounts + steps;
+  Shopping Saver / macros stay plan features.
+- Cook mode: steps are tickable (`components/funnel/cook-steps.tsx`, remembered per device in localStorage); ticking the last
+  step opens the celebration sheet (save / share / "Time to eat") and tracks `feature_used: cooked`.
 
 ### Local development
 - `npx supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,realtime,postgres-meta` (Docker)
