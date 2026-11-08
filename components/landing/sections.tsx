@@ -16,7 +16,19 @@ const scrollToTry = (e?: React.MouseEvent) => {
   el?.scrollIntoView({ behavior: "smooth", block: "start" });
 };
 
+function useSignedIn() {
+  const [signedIn, setSignedIn] = React.useState(false);
+  React.useEffect(() => {
+    const check = () => setSignedIn(/sb-[^=]+-auth-token/.test(document.cookie));
+    check();
+    window.addEventListener("pp:authed", check);
+    return () => window.removeEventListener("pp:authed", check);
+  }, []);
+  return signedIn;
+}
+
 export function TopBar() {
+  const signedIn = useSignedIn();
   const [scrolled, setScrolled] = React.useState(false);
   const { scrollY } = useScroll();
   useMotionValueEvent(scrollY, "change", (v) => setScrolled(v > 24));
@@ -37,7 +49,7 @@ export function TopBar() {
           <a href="#questions" className="rounded-full px-3 py-2 hover:text-cream">Questions</a>
         </div>
         <div className="flex items-center gap-1.5">
-          <a href="/login" className="whitespace-nowrap rounded-full px-2.5 py-2 text-[14px] font-semibold text-cream/85 hover:text-cream sm:px-3">Log in</a>
+          <a href={signedIn ? "/app" : "/login"} className="whitespace-nowrap rounded-full px-2.5 py-2 text-[14px] font-semibold text-cream/85 hover:text-cream sm:px-3">{signedIn ? "My kitchen" : "Log in"}</a>
           <a href="#try" onClick={scrollToTry} className="group inline-flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full bg-tomato pl-3.5 pr-3 text-[14px] font-semibold text-white transition hover:bg-tomato-deep active:scale-95" data-testid="nav-cta">
             Make my recipe <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
           </a>

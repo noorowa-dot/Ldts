@@ -77,11 +77,11 @@ export function TryFirst({ signedIn = false, initialRecipe = null, autoUnlock = 
       returnPath={recipe ? `/r/${recipe.id}?unlock=1` : "/app"}
       onAuthed={async () => {
         setAuthed(true);
-        if (recipe) {
-          await refetch(recipe.id);
-          // The recipe page (header, session) re-renders for the signed-in user and opens the paywall over the recipe.
-          router.replace(`/r/${recipe.id}?unlock=1`, { scroll: false });
-        } else router.refresh();
+        if (recipe) await refetch(recipe.id);
+        window.dispatchEvent(new Event("pp:authed"));
+        // On the recipe page the server parts (header) can refresh in place. On the landing page we stay put:
+        // re-rendering it as another page would close the paywall the person is about to use.
+        if (initialRecipe) router.refresh();
       }}
       onUnlocked={async () => {
         if (recipe) {
