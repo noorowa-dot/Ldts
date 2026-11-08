@@ -83,7 +83,7 @@ export async function usedThisPeriod(ctx: Ctx) {
 export async function saveRecipe(
   ctx: Ctx,
   g: Generated,
-  opts: { source: "photo" | "example" | "list" | "remix"; diet: string[]; photo?: { bytes: Buffer; mime: string } | null; parentId?: string | null; photoPath?: string | null }
+  opts: { source: "photo" | "example" | "list" | "remix" | "idea"; diet: string[]; photo?: { bytes: Buffer; mime: string } | null; parentId?: string | null; photoPath?: string | null }
 ): Promise<string> {
   const id = crypto.randomUUID();
   let photoPath: string | null = opts.photoPath ?? null;

@@ -56,7 +56,7 @@ export async function POST(req: Request) {
     const diet = ((prof as { diet: Diet[] } | null)?.diet ?? []).filter((d) => q.diets === "all" || (q.diets === "vegetarian" && d === "vegetarian"));
     try {
       const g = await cookFromIdea(dish, { diet });
-      recipeId = await saveRecipe(c, g, { source: "list", diet });
+      recipeId = await saveRecipe(c, g, { source: "idea", diet });
     } catch (e) {
       console.error("[plan] idea", e);
       return err(e instanceof AiError ? e.code : "failed", "Our chef dropped the spoon. Please try again.", 500);
