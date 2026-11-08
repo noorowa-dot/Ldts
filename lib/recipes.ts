@@ -5,7 +5,7 @@ import { db } from "./supabase/admin";
 import { getUser, type SessionUser } from "./supabase/server";
 import { getApp, getPlan, QUOTAS, tierOf, type PlanState, type Tier, type KwopPlan } from "./kwop";
 import { getComp, higherTier, tierLabel, type Comp } from "./vouchers";
-import type { Generated, RecipeBody, RecipeTeaser, RecipeView } from "./types";
+import type { Generated, Heat, RecipeBody, RecipeTeaser, RecipeView } from "./types";
 
 import { ANON_DAILY, FREE_DAILY, FREE_WEEKLY } from "./plan-config";
 export { ANON_DAILY, FREE_DAILY };
@@ -98,7 +98,7 @@ export async function usedThisPeriod(ctx: Ctx) {
 export async function saveRecipe(
   ctx: Ctx,
   g: Generated,
-  opts: { source: "photo" | "example" | "list" | "remix" | "idea"; diet: string[]; photo?: { bytes: Buffer; mime: string } | null; parentId?: string | null; photoPath?: string | null }
+  opts: { source: "photo" | "example" | "list" | "remix" | "idea"; diet: string[]; heat?: Heat | null; photo?: { bytes: Buffer; mime: string } | null; parentId?: string | null; photoPath?: string | null }
 ): Promise<string> {
   const id = crypto.randomUUID();
   let photoPath: string | null = opts.photoPath ?? null;
@@ -125,10 +125,11 @@ export async function saveRecipe(
     found: g.found,
     uses: g.uses,
     diet: opts.diet,
+    heat: opts.heat ?? null,
     parent_id: opts.parentId ?? null,
   } as never);
   if (error) throw new Error("Could not save the recipe: " + error.message);
-  const body: RecipeBody = { ingredients: g.ingredients, steps: g.steps, shopping: g.shopping, tip: g.tip, macros: g.macros };
+  const body: RecipeBody = { ingredients: g.ingredients, steps: g.steps, shopping: g.shopping, tip: g.tip, tips: g.tips, macros: g.macros };
   const b = await db().from("recipe_bodies").insert({ recipe_id: id, body } as never);
   if (b.error) throw new Error("Could not save the recipe body: " + b.error.message);
   return id;
@@ -151,6 +152,7 @@ type Row = {
   parent_id: string | null;
   created_at: string;
   source: string;
+  heat: Heat | null;
 };
 
 export function ownsRow(ctx: Ctx, row: Pick<Row, "user_id" | "anon_id">) {
@@ -220,6 +222,9 @@ export async function toView(ctx: Ctx, row: Row): Promise<RecipeView> {
     steps: body.steps.map((s, idx) => (unlocked ? s : { title: idx === 0 ? s.title : mask(s.title, seed + idx), text: mask(s.text, seed + idx), minutes: s.minutes })),
     shopping: access.shopping ? body.shopping : body.shopping.map((s) => ({ item: mask(s.item, seed), why: mask(s.why, seed) })),
     tip: access.macros ? body.tip : mask(body.tip, seed),
+    tips: (body.tips?.length ? body.tips : body.tip ? [{ title: "Chef's tip", text: body.tip }] : []).map((t, i) =>
+      access.macros ? t : { title: mask(t.title, seed + i), text: mask(t.text, seed + i + 7) }
+    ),
     macros: access.macros
       ? body.macros
       : {
@@ -240,6 +245,7 @@ export async function toView(ctx: Ctx, row: Row): Promise<RecipeView> {
     uses: row.uses,
     diet: row.diet,
     photo_url: await signedPhoto(row.photo_path),
+    heat: row.heat ?? null,
     created_at: row.created_at,
     is_favorite: row.is_favorite,
     parent_id: row.parent_id,

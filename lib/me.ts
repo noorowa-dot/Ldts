@@ -18,14 +18,15 @@ export type Me = {
   periodStart: string;
   diet: string[];
   calorieTarget: number | null;
+  heat: "mild" | "medium" | "hot" | "extra" | null;
   quotas: (typeof QUOTAS)[Tier];
 };
 
 export async function requireMe(next = "/app"): Promise<Me> {
   const ctx = await getCtx();
   if (!ctx.user) redirect(`/login?next=${encodeURIComponent(next)}`);
-  const [a, prof] = await Promise.all([allowance(ctx), db().from("profiles").select("diet,calorie_target").eq("id", ctx.user.id).maybeSingle()]);
-  const p = prof.data as { diet: string[]; calorie_target: number | null } | null;
+  const [a, prof] = await Promise.all([allowance(ctx), db().from("profiles").select("diet,calorie_target,heat").eq("id", ctx.user.id).maybeSingle()]);
+  const p = prof.data as { diet: string[]; calorie_target: number | null; heat: Me["heat"] } | null;
   return {
     email: ctx.user.email,
     tier: ctx.tier,
@@ -39,6 +40,7 @@ export async function requireMe(next = "/app"): Promise<Me> {
     periodStart: periodStart(ctx.plan).toISOString(),
     diet: p?.diet ?? [],
     calorieTarget: p?.calorie_target ?? null,
+    heat: p?.heat ?? null,
     quotas: QUOTAS[ctx.tier],
   };
 }

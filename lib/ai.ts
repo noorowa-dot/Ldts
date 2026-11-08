@@ -1,6 +1,6 @@
 import "server-only";
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
-import type { Diet, Generated } from "./types";
+import type { Diet, Generated, Heat } from "./types";
 
 /**
  * The only place Platepal talks to an AI model (Google Gemini).
@@ -68,7 +68,16 @@ const schema = {
       description: "0 to 3 missing items, ONLY if strictly necessary. Basic pantry staples (salt, pepper, oil, water) never go here.",
       items: { type: "object", properties: { item: { type: "string" }, why: { type: "string" } }, required: ["item", "why"] },
     },
-    tip: { type: "string", description: "One pro chef tip for this exact dish, max 30 words" },
+    tips: {
+      type: "array",
+      description:
+        "3 to 5 substantial chef's tips for THIS dish, each different in kind: a technique that makes it better (why it works), a swap or substitution, a flavor boost, make-ahead or leftovers/storage, and how to serve or plate it. Concrete, 20-45 words each.",
+      items: {
+        type: "object",
+        properties: { title: { type: "string", description: "2-5 words, e.g. 'Dry the chicken first'" }, text: { type: "string" } },
+        required: ["title", "text"],
+      },
+    },
     macros: {
       type: "object",
       description: "Estimated per serving",
@@ -76,7 +85,7 @@ const schema = {
       required: ["calories", "protein_g", "carbs_g", "fat_g"],
     },
   },
-  required: ["no_food", "found", "title", "intro", "time_minutes", "servings", "difficulty", "uses", "ingredients", "steps", "shopping", "tip", "macros"],
+  required: ["no_food", "found", "title", "intro", "time_minutes", "servings", "difficulty", "uses", "ingredients", "steps", "shopping", "tips", "macros"],
 };
 
 type CookOptions = {
@@ -85,7 +94,21 @@ type CookOptions = {
   avoidTitles?: string[];
   /** "fridge": only what is at home (default). "idea": a dish the person wants to cook this week (shopping allowed). */
   mode?: "fridge" | "idea";
+  /** Spice level. Never changes which dish is chosen: only how much heat it carries. */
+  heat?: Heat | null;
 };
+
+const HEAT_RULES: Record<Heat, string> = {
+  mild: "MILD: no chili heat at all (no chili flakes, cayenne, hot sauce or hot peppers); black pepper is fine. Family and kid friendly.",
+  medium: "MEDIUM: a gentle, warming heat (for example a pinch of red pepper flakes or a little hot sauce) that most people enjoy.",
+  hot: "HOT: clearly spicy. Increase the heat with red pepper flakes, cayenne, hot sauce or fresh chilies (about 2-3x a normal amount), and say in the steps when to add it.",
+  extra: "EXTRA HOT: fiery. Layer heat in two places (for example chilies in the cooking and hot sauce or chili oil to finish), clearly marked amounts, plus one line in the tips on how to tame it at the table.",
+};
+
+function heatLine(h?: Heat | null) {
+  if (!h) return null;
+  return `Heat level: ${HEAT_RULES[h]} Choose the dish exactly as you would without this preference; the heat level only changes the spices, their amounts and the steps where they go in. A small jar of a common heat source (red pepper flakes, cayenne or hot sauce) can be assumed in the pantry.`;
+}
 
 function instructions(o: CookOptions) {
   const lines =
@@ -105,6 +128,8 @@ function instructions(o: CookOptions) {
   if (o.diet?.length) lines.push(`The recipe MUST be: ${o.diet.join(", ")}. Skip items that break this.`);
   if (o.calorieTarget) lines.push(`Aim for about ${o.calorieTarget} calories per serving.`);
   if (o.avoidTitles?.length) lines.push(`Make something clearly different from: ${o.avoidTitles.join("; ")}.`);
+  const hl = heatLine(o.heat);
+  if (hl) lines.push(hl);
   return lines.join("\n");
 }
 
@@ -230,6 +255,16 @@ function dedupe<T extends { name: string }>(xs: T[]) {
   });
 }
 
+function tipsOf(d: Record<string, unknown>): { tip: string; tips: { title: string; text: string }[] } {
+  const raw = Array.isArray(d.tips) ? (d.tips as Record<string, unknown>[]) : [];
+  const tips = raw
+    .map((t) => ({ title: str(t?.title, 60), text: str(t?.text, 420) }))
+    .filter((t) => t.text)
+    .slice(0, 5);
+  if (!tips.length && d.tip) tips.push({ title: "Chef's tip", text: str(d.tip, 420) });
+  return { tip: tips[0]?.text ?? "", tips };
+}
+
 function sanitize(d: Record<string, unknown>): Generated {
   const arr = (v: unknown) => (Array.isArray(v) ? v : []);
   return {
@@ -251,7 +286,7 @@ function sanitize(d: Record<string, unknown>): Generated {
       minutes: clamp(s.minutes, 0, 120, 5),
     })),
     shopping: arr(d.shopping).slice(0, 3).map((s: Record<string, unknown>) => ({ item: str(s.item, 50), why: str(s.why, 120) })),
-    tip: str(d.tip, 240),
+    ...tipsOf(d),
     macros: {
       calories: clamp((d.macros as Record<string, unknown>)?.calories, 0, 3000, 0),
       protein_g: clamp((d.macros as Record<string, unknown>)?.protein_g, 0, 300, 0),
@@ -403,4 +438,23 @@ export function buildShoppingList(input: {
       })
       .slice(0, 80);
   });
+}
+
+/**
+ * Same dish, different heat: rewrites the spices, amounts and steps of an existing recipe for the chosen heat level.
+ * The dish, its main ingredients and its title stay the same.
+ */
+export function adjustHeat(
+  current: { title: string; intro: string; time_minutes: number; servings: number; difficulty: string; ingredients: { item: string; amount: string; from_fridge: boolean }[]; steps: { title: string; text: string; minutes: number }[]; uses: string[] },
+  heat: Heat,
+  o: CookOptions = {}
+) {
+  const text = [
+    "Here is a recipe. Keep the SAME dish, the same title, the same main ingredients and the same number of servings.",
+    "Only change its heat: the spicy ingredients and their amounts, the steps where they go in, and the tips about heat.",
+    "Return the whole recipe. `found` and `uses` = these ingredient names (x and y can be any value).",
+    "",
+    JSON.stringify(current),
+  ].join("\n");
+  return run([{ text }], { ...o, heat, mode: "idea" });
 }

@@ -3,6 +3,8 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Lock, Check } from "lucide-react";
 import { TryFirst } from "@/components/funnel/try-first";
+import { HeatPicker } from "@/components/funnel/heat-picker";
+import type { Heat } from "@/lib/types";
 import { DIETS } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useMe } from "./me-context";
@@ -14,6 +16,11 @@ export function Fridge() {
   const allowed = (id: string) => me.quotas.diets === "all" || (me.quotas.diets === "vegetarian" && id === "vegetarian");
   const [diet, setDiet] = React.useState<string[]>(me.diet.filter(allowed));
   const [upsell, setUpsell] = React.useState(false);
+  const [heat, setHeat] = React.useState<Heat>(me.heat ?? "medium");
+  function pickHeat(h: Heat) {
+    setHeat(h);
+    fetch("/api/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ heat: h }) }).catch(() => {});
+  }
 
   function toggle(id: string) {
     if (!allowed(id)) return setUpsell(true);
@@ -42,6 +49,10 @@ export function Fridge() {
           );
         })}
       </div>
+      <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2" data-testid="fridge-heat">
+        <span className="text-[13px] font-semibold text-fg-muted">Heat</span>
+        <HeatPicker value={heat} onChange={pickHeat} size="sm" />
+      </div>
       {upsell && (
         <p className="mb-4 rounded-2xl bg-butter-soft px-4 py-3 text-[14px] text-[#5b430a]">
           {me.tier === "none" ? "Dietary filters come with a plan." : "All 6 dietary filters come with Pro."}{" "}
@@ -56,6 +67,7 @@ export function Fridge() {
             signedIn
             options={{
               diet,
+              heat,
               allowList: true,
               inApp: true,
               onResult: (r) => {

@@ -21,14 +21,14 @@ export async function POST(req: Request, ctx: RouteContext<"/api/recipes/[id]/re
   if (!allow.ok) return err(allow.reason, allow.reason === "anon_limit" ? "You've made 3 free recipes today. Create a free account to keep going." : "You've used the recipes included today. Pick a plan to cook more.", 429);
   const items = Array.from(new Set(parsed.data.items.map((s) => s.replace(/\s+/g, " "))));
   try {
-    const g = await cookFromList(items, { diet: row.diet });
+    const g = await cookFromList(items, { diet: row.diet, heat: row.heat });
     // Keep the photo pins for items that were already there; new items are listed without a pin.
     const pos = new Map(row.found.map((f) => [f.name.toLowerCase(), f]));
     g.found = items.map((name) => {
       const p = pos.get(name.toLowerCase());
       return { name, x: p?.x ?? -1, y: p?.y ?? -1 };
     });
-    const newId = await saveRecipe(c, g, { source: row.photo_path ? "photo" : "list", diet: row.diet, photoPath: row.photo_path, parentId: null });
+    const newId = await saveRecipe(c, g, { source: row.photo_path ? "photo" : "list", heat: row.heat, diet: row.diet, photoPath: row.photo_path, parentId: null });
     track("feature_used", c.user?.email, "edit_ingredients");
     return json({ recipe: await toView(c, (await getRow(newId))!) });
   } catch (e) {

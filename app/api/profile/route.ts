@@ -7,6 +7,7 @@ import { err, json } from "@/lib/http";
 const Body = z.object({
   diet: z.array(z.enum(["vegetarian", "vegan", "keto", "gluten-free", "dairy-free", "high-protein"])).max(6).optional(),
   calorie_target: z.number().int().min(200).max(2000).nullable().optional(),
+  heat: z.enum(["mild", "medium", "hot", "extra"]).nullable().optional(),
 });
 
 export async function PATCH(req: Request) {
@@ -17,6 +18,7 @@ export async function PATCH(req: Request) {
   const q = QUOTAS[c.tier];
   const update: Record<string, unknown> = {};
   if (parsed.data.diet) update.diet = q.diets === "all" ? parsed.data.diet : q.diets === "vegetarian" ? parsed.data.diet.filter((d) => d === "vegetarian") : [];
+  if (parsed.data.heat !== undefined) update.heat = parsed.data.heat;
   if (parsed.data.calorie_target !== undefined) {
     if (!q.calorieTarget && parsed.data.calorie_target !== null) return err("upgrade", "Calorie targets come with Chef.", 403);
     update.calorie_target = parsed.data.calorie_target;

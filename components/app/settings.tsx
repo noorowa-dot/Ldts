@@ -1,7 +1,8 @@
 "use client";
 import * as React from "react";
 import { Check, Lock, Monitor, Moon, Sun, Smartphone } from "lucide-react";
-import { DIETS } from "@/lib/types";
+import { DIETS, type Heat } from "@/lib/types";
+import { HeatPicker } from "@/components/funnel/heat-picker";
 import { cn } from "@/lib/utils";
 import { useMe } from "./me-context";
 import { PageTitle } from "./app-shell";
@@ -25,6 +26,7 @@ export function SettingsPage() {
   const [diet, setDiet] = React.useState<string[]>(me.diet);
   const [cal, setCal] = React.useState<string>(me.calorieTarget ? String(me.calorieTarget) : "");
   const [theme, setT] = React.useState<ThemePref>("system");
+  const [heat, setHeat] = React.useState<Heat>(me.heat ?? "medium");
   // Reads the saved theme from this browser after mount (not available on the server).
   // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => setT(getTheme()), []);
@@ -58,6 +60,15 @@ export function SettingsPage() {
             );
           })}
         </div>
+      </Card>
+      <Card title="Heat level" sub="How spicy new recipes are. It never changes the dish, only the chili, cayenne or hot sauce in it.">
+        <HeatPicker
+          value={heat}
+          onChange={(h) => {
+            setHeat(h);
+            save({ heat: h }, "Heat level saved");
+          }}
+        />
       </Card>
       <Card title="Calorie target" sub={me.quotas.calorieTarget ? "Platepal aims for this many calories per serving." : "Included with Chef: Platepal aims each recipe at your calorie target."}>
         {me.quotas.calorieTarget ? (

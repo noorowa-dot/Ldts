@@ -5,7 +5,9 @@ import { QUOTAS, track } from "@/lib/kwop";
 import { err, json } from "@/lib/http";
 import { supabaseConfigured } from "@/lib/supabase/config";
 import { db } from "@/lib/supabase/admin";
-import type { Diet } from "@/lib/types";
+import type { Diet, Heat } from "@/lib/types";
+
+const HEATS = ["mild", "medium", "hot", "extra"] as const;
 
 export const maxDuration = 120;
 
@@ -45,6 +47,13 @@ export async function POST(req: Request) {
     const q = QUOTAS[ctx.tier];
     diet = q.diets === "all" ? parsed.data : q.diets === "vegetarian" ? parsed.data.filter((d) => d === "vegetarian") : [];
   }
+  // Heat level: from the Fridge picker, else the person's saved default. Changes spice, never the dish.
+  const rawHeat = form.get("heat");
+  let heat: Heat | null = typeof rawHeat === "string" && (HEATS as readonly string[]).includes(rawHeat) ? (rawHeat as Heat) : null;
+  if (!heat && ctx.user) {
+    const { data } = await db().from("profiles").select("heat").eq("id", ctx.user.id).maybeSingle();
+    heat = ((data as { heat: Heat | null } | null)?.heat ?? null) as Heat | null;
+  }
   let calorieTarget: number | null = null;
   if (QUOTAS[ctx.tier].calorieTarget && ctx.user) {
     const { data } = await db().from("profiles").select("calorie_target").eq("id", ctx.user.id).maybeSingle();
@@ -62,20 +71,20 @@ export async function POST(req: Request) {
       const mime = photo.type || "image/jpeg";
       if (!["image/jpeg", "image/png", "image/webp"].includes(mime)) return err("bad_type", "Please use a JPG, PNG or WebP photo.");
       const bytes = Buffer.from(await photo.arrayBuffer());
-      const g = await withRetry(() => cookFromPhoto({ data: bytes.toString("base64"), mimeType: mime }, { diet, calorieTarget }));
-      id = await saveRecipe(ctx, g, { source: "photo", diet, photo: { bytes, mime } });
+      const g = await withRetry(() => cookFromPhoto({ data: bytes.toString("base64"), mimeType: mime }, { diet, calorieTarget, heat }));
+      id = await saveRecipe(ctx, g, { source: "photo", heat, diet, photo: { bytes, mime } });
     } else if (typeof example === "string" && (EXAMPLES as readonly string[]).includes(example)) {
       const origin = new URL(req.url).origin;
       const res = await fetch(`${origin}/examples/${example}.jpg`);
       if (!res.ok) return err("example_missing", "That example is not available right now.", 500);
       const bytes = Buffer.from(await res.arrayBuffer());
-      const g = await withRetry(() => cookFromPhoto({ data: bytes.toString("base64"), mimeType: "image/jpeg" }, { diet, calorieTarget }));
-      id = await saveRecipe(ctx, g, { source: "example", diet, photo: { bytes, mime: "image/jpeg" } });
+      const g = await withRetry(() => cookFromPhoto({ data: bytes.toString("base64"), mimeType: "image/jpeg" }, { diet, calorieTarget, heat }));
+      id = await saveRecipe(ctx, g, { source: "example", heat, diet, photo: { bytes, mime: "image/jpeg" } });
     } else if (typeof list === "string" && list.trim()) {
       const items = list.split(",").map((s) => s.trim().slice(0, 40)).filter(Boolean).slice(0, 20);
       if (items.length < 2) return err("short_list", "Add at least 2 ingredients.");
-      const g = await withRetry(() => cookFromList(items, { diet, calorieTarget }));
-      id = await saveRecipe(ctx, g, { source: "list", diet });
+      const g = await withRetry(() => cookFromList(items, { diet, calorieTarget, heat }));
+      id = await saveRecipe(ctx, g, { source: "list", heat, diet });
     } else {
       return err("no_input", "Add a photo of your fridge first.");
     }

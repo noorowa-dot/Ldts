@@ -6,6 +6,8 @@ import type { RecipeView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Sticker, toneCycle } from "@/components/ui/sticker";
 import { CookSteps } from "./cook-steps";
+import { HeatPicker } from "./heat-picker";
+import { HEATS, type Heat } from "@/lib/types";
 
 export type UpgradeFeature = "shopping" | "macros" | "remix" | "saved" | "quota" | "diet" | "plan" | "shop" | "prices";
 
@@ -25,6 +27,9 @@ type Props = {
   className?: string;
   /** Remake the recipe from a corrected ingredient list (when the photo was misread). */
   onEditIngredients?: (items: string[]) => void;
+  /** Same dish, new heat level (unlocked recipes). */
+  onHeat?: (h: Heat) => void;
+  heatBusy?: Heat | null;
 };
 
 type Placed = { i: number; side: "left" | "right" | null };
@@ -194,7 +199,7 @@ function LockedOverlay({ label, onClick, sub }: { label: string; onClick?: () =>
   );
 }
 
-export function RecipeCard({ recipe, onUnlock, onUpgrade, unlockLabel = "See my full recipe", actions, justUnlocked, className, onEditIngredients }: Props) {
+export function RecipeCard({ recipe, onUnlock, onUpgrade, unlockLabel = "See my full recipe", actions, justUnlocked, className, onEditIngredients, onHeat, heatBusy }: Props) {
   const reduce = useReducedMotion();
   const { unlocked } = recipe.access;
   const usesCount = recipe.uses.length || recipe.body.ingredients.filter((i) => i.from_fridge).length;
@@ -233,10 +238,25 @@ export function RecipeCard({ recipe, onUnlock, onUpgrade, unlockLabel = "See my 
           <Meta icon={<Check className="h-4 w-4" />} className="bg-olive-soft text-olive">
             Uses {usesCount} of your {recipe.found.length}
           </Meta>
+          {recipe.heat && (
+            <Meta icon={<Flame className="h-4 w-4 text-tomato" />} className="bg-[#fde3dc] text-tomato-deep">
+              {HEATS.find((h) => h.id === recipe.heat)?.label}
+            </Meta>
+          )}
           {recipe.diet.map((d) => (
             <Meta key={d} className="bg-butter-soft capitalize text-[#7a5a0a]">{d}</Meta>
           ))}
         </div>
+
+        {onHeat && recipe.access.unlocked && (
+          <div className="mt-5 rounded-2xl border border-border bg-surface-2/60 p-3 print:hidden" data-testid="heat-row">
+            <p className="mb-2 flex items-center gap-1.5 text-[13px] font-semibold">
+              <Flame className="h-4 w-4 text-tomato" /> Heat level
+              <span className="font-normal text-fg-muted">{heatBusy ? (HEATS.findIndex((h) => h.id === heatBusy) > HEATS.findIndex((h) => h.id === (recipe.heat ?? "medium")) ? "· Turning up the heat…" : "· Cooling it down…") : "· same dish, your spice"}</span>
+            </p>
+            <HeatPicker value={recipe.heat ?? null} onChange={onHeat} busy={heatBusy} size="sm" />
+          </div>
+        )}
 
         {/* Ingredients */}
         <Section title="Ingredients">
@@ -304,9 +324,19 @@ export function RecipeCard({ recipe, onUnlock, onUpgrade, unlockLabel = "See my 
         )}
 
         {/* Chef's tip + macros */}
-        <Section title="Chef's tip & macros" icon={<Flame className="h-4 w-4" />}>
+        <Section title="Chef's tips & macros" icon={<ChefHat className="h-4 w-4" />}>
           <div className={cn(!recipe.access.macros && "locked")}>
-            <p className="rounded-xl bg-butter-soft px-4 py-3 text-[15px] leading-relaxed text-[#5b430a]">{recipe.body.tip || "Taste as you go and season at the end."}</p>
+            <ul className="space-y-2" data-testid="chef-tips">
+              {(recipe.body.tips?.length ? recipe.body.tips : [{ title: "Chef's tip", text: recipe.body.tip || "Taste as you go and season at the end." }]).map((t, i) => (
+                <li key={i} className="flex gap-3 rounded-xl bg-butter-soft px-4 py-3 text-[#5b430a]">
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#7a5a0a] font-mono text-[11px] text-butter-soft">{i + 1}</span>
+                  <span>
+                    <span className="block text-[14px] font-semibold">{t.title}</span>
+                    <span className="block text-[14px] leading-relaxed">{t.text}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
             <div className="mt-3 grid grid-cols-4 gap-2 text-center">
               {[
                 ["Calories", recipe.body.macros.calories, ""],

@@ -24,10 +24,11 @@ export async function POST(_req: Request, ctx: RouteContext<"/api/recipes/[id]/r
   try {
     const g = await cookFromList(row.found.map((f) => f.name), {
       diet: row.diet,
+      heat: row.heat,
       avoidTitles: (family ?? []).map((f: { title: string }) => f.title),
     });
     g.found = row.found;
-    const newId = await saveRecipe(c, g, { source: "remix", diet: row.diet, parentId: rootId, photoPath: row.photo_path });
+    const newId = await saveRecipe(c, g, { source: "remix", heat: row.heat, diet: row.diet, parentId: rootId, photoPath: row.photo_path });
     track("feature_used", c.user.email, "remix");
     return json({ recipe: await toView(c, (await getRow(newId))!) });
   } catch (e) {

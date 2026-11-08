@@ -3,7 +3,7 @@ import * as React from "react";
 import { AnimatePresence, m, useReducedMotion } from "framer-motion";
 import { Camera, Check, ImagePlus, RotateCcw, Lock, ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
-import type { RecipeView } from "@/lib/types";
+import type { Heat, RecipeView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { RecipeCard, PhotoWithStickers } from "./recipe-card";
@@ -51,6 +51,8 @@ export type EngineOptions = {
   allowList?: boolean;
   /** Hide the example shelves (the app shows them smaller). */
   inApp?: boolean;
+  /** Heat level for new recipes. */
+  heat?: string | null;
 };
 
 export function TryFirst({ signedIn = false, initialRecipe = null, autoUnlock = false, options = {} }: { signedIn?: boolean; initialRecipe?: RecipeView | null; autoUnlock?: boolean; options?: EngineOptions }) {
@@ -97,6 +99,15 @@ export function TryFirst({ signedIn = false, initialRecipe = null, autoUnlock = 
 
 function Engine({ recipe, setRecipe, justUnlocked, autoUnlock, options }: { recipe: RecipeView | null; setRecipe: (r: RecipeView) => void; justUnlocked: boolean; autoUnlock: boolean; options: EngineOptions }) {
   const [listOpen, setListOpen] = React.useState(false);
+  const [heatBusy, setHeatBusy] = React.useState<Heat | null>(null);
+  async function changeHeat(h: Heat) {
+    if (!recipe || h === recipe.heat) return;
+    setHeatBusy(h);
+    const r = await fetch(`/api/recipes/${recipe.id}/heat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ heat: h }) });
+    const d = await r.json().catch(() => ({}));
+    setHeatBusy(null);
+    if (r.ok) setRecipe(d.recipe);
+  }
   const [list, setList] = React.useState("");
   const { openUnlock, openUpgrade, plans } = useUnlock();
   const featured = plans?.find((p) => p.featured) ?? plans?.[0];
@@ -157,6 +168,7 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock, options }: { reci
 
   async function run(body: FormData | { url: string; json: unknown }, preview: string) {
     if (body instanceof FormData && options.diet?.length && !body.has("diet")) body.append("diet", options.diet.join(","));
+    if (body instanceof FormData && options.heat && !body.has("heat")) body.append("heat", options.heat);
     setPhase({ kind: "working", preview });
     setStamp(false);
     topRef.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
@@ -397,6 +409,8 @@ function Engine({ recipe, setRecipe, justUnlocked, autoUnlock, options }: { reci
               onUpgrade={openUpgrade}
               justUnlocked={justUnlocked}
               onEditIngredients={(items) => run({ url: `/api/recipes/${phase.recipe.id}/rework`, json: { items } }, phase.recipe.photo_url ?? "")}
+              onHeat={phase.recipe.access.unlocked ? changeHeat : undefined}
+              heatBusy={heatBusy}
             />
             {!phase.recipe.access.unlocked && (
               <div className="mt-4 flex flex-col items-center gap-3">

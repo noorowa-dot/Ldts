@@ -6,7 +6,7 @@ import { weekMeals } from "@/lib/plan";
 import { parseWeek } from "@/lib/week";
 import { AiError, aiConfigured, cookFromIdea } from "@/lib/ai";
 import { err, json } from "@/lib/http";
-import type { Diet } from "@/lib/types";
+import type { Diet, Heat } from "@/lib/types";
 
 export const maxDuration = 120;
 
@@ -52,11 +52,12 @@ export async function POST(req: Request) {
     if (!aiConfigured()) return err("ai_off", "The AI chef is warming up. Please try again in a minute.", 503);
     const allow = await allowance(c);
     if (!allow.ok) return err(allow.reason, "You've used the recipes included today. Pick a plan to cook more.", 429, { feature: "quota" });
-    const { data: prof } = await db().from("profiles").select("diet").eq("id", c.user.id).maybeSingle();
+    const { data: prof } = await db().from("profiles").select("diet,heat").eq("id", c.user.id).maybeSingle();
+    const heat = ((prof as { heat: Heat | null } | null)?.heat ?? null) as Heat | null;
     const diet = ((prof as { diet: Diet[] } | null)?.diet ?? []).filter((d) => q.diets === "all" || (q.diets === "vegetarian" && d === "vegetarian"));
     try {
-      const g = await cookFromIdea(dish, { diet });
-      recipeId = await saveRecipe(c, g, { source: "idea", diet });
+      const g = await cookFromIdea(dish, { diet, heat });
+      recipeId = await saveRecipe(c, g, { source: "idea", heat, diet });
     } catch (e) {
       console.error("[plan] idea", e);
       return err(e instanceof AiError ? e.code : "failed", "Our chef dropped the spoon. Please try again.", 500);

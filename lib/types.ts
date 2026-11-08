@@ -9,13 +9,24 @@ export const DIETS: { id: Diet; label: string }[] = [
 ];
 
 /** x/y in percent of the photo; -1 when the position is unknown (no pin on the photo). */
+export type Heat = "mild" | "medium" | "hot" | "extra";
+export const HEATS: { id: Heat; label: string; flames: number; hint: string }[] = [
+  { id: "mild", label: "Mild", flames: 1, hint: "No chili heat. Kid-friendly." },
+  { id: "medium", label: "Medium", flames: 2, hint: "A gentle warmth." },
+  { id: "hot", label: "Hot", flames: 3, hint: "Clearly spicy." },
+  { id: "extra", label: "Extra hot", flames: 4, hint: "Bring the fire." },
+];
+
 export type FoundItem = { name: string; x: number; y: number };
 
 export type RecipeBody = {
   ingredients: { item: string; amount: string; from_fridge: boolean }[];
   steps: { title: string; text: string; minutes: number }[];
   shopping: { item: string; why: string }[];
+  /** Kept for older recipes: the first tip. */
   tip: string;
+  /** 3-5 substantial chef's tips (technique, swap, flavor boost, make-ahead, serving). */
+  tips?: { title: string; text: string }[];
   macros: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
 };
 
@@ -30,6 +41,7 @@ export type RecipeTeaser = {
   uses: string[];
   diet: Diet[];
   photo_url: string | null;
+  heat: Heat | null;
   created_at: string;
   is_favorite: boolean;
   parent_id: string | null;

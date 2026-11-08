@@ -45,7 +45,7 @@ export function unlockLines(t: Tier): string[] {
   if (t === "pro")
     lines.push("Plan lunch + dinner all week, smart shopping lists", "Price check: see which store is cheapest for your list", "All 6 dietary filters + Shopping Saver", "3 remixes per recipe · unlimited favorites");
   if (t === "chef")
-    lines.push("Macros per serving + a calorie target", "The chef's tip on every dish", "Everything in Pro: whole-week planner, price check, all filters", "10 remixes per recipe · unlimited favorites");
+    lines.push("3-5 chef's tips on every dish: technique, swaps, make-ahead", "Macros per serving + a calorie target", "Everything in Pro: whole-week planner, price check, all filters", "10 remixes per recipe · unlimited favorites");
   return lines;
 }
 
@@ -59,9 +59,11 @@ export const FEATURE_ROWS: { label: string; hint?: string; cells: Record<"visito
   { label: "Saved recipes", cells: { visitor: false, none: String(QUOTAS.none.saved), starter: String(QUOTAS.starter.saved), pro: "Unlimited", chef: "Unlimited" } },
   { label: "Week planner", cells: { visitor: false, none: `${QUOTAS.none.planMeals} dinners`, starter: "Every dinner", pro: "Lunch + dinner", chef: "Lunch + dinner" } },
   { label: "Smart shopping list", cells: { visitor: false, none: `${FREE_LISTS_MONTHLY} a month`, starter: "Unlimited", pro: "Unlimited", chef: "Unlimited" } },
+  { label: "Heat level (mild → extra hot)", cells: { visitor: false, none: true, starter: true, pro: true, chef: true } },
   { label: "Dietary filters", cells: { visitor: false, none: false, starter: "Vegetarian", pro: "All 6", chef: "All 6" } },
   { label: "Remix: new dish, same fridge", cells: { visitor: false, none: false, starter: `${QUOTAS.starter.remix} per recipe`, pro: `${QUOTAS.pro.remix} per recipe`, chef: `${QUOTAS.chef.remix} per recipe` } },
   { label: "Shopping Saver (what's missing)", cells: { visitor: false, none: false, starter: false, pro: true, chef: true } },
   { label: "Price check across your stores", cells: { visitor: false, none: false, starter: false, pro: true, chef: true } },
-  { label: "Macros, calorie target & chef's tips", cells: { visitor: false, none: false, starter: false, pro: false, chef: true } },
+  { label: "3-5 chef's tips per dish", cells: { visitor: false, none: false, starter: false, pro: false, chef: true } },
+  { label: "Macros & calorie target", cells: { visitor: false, none: false, starter: false, pro: false, chef: true } },
 ];

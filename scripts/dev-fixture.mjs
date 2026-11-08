@@ -64,6 +64,11 @@ await db.from("recipe_bodies").insert({ recipe_id: id, body: {
   ],
   shopping: [],
   tip: "Start the chicken in a pan that is fully hot and don't move it for 6 minutes: that is how you get crispy skin.",
+  tips: [
+    { title: "Dry the chicken first", text: "Pat the thighs completely dry and salt them 10 minutes ahead. Dry skin browns instead of steaming, so you get a crisp, golden crust." },
+    { title: "Swap the feta", text: "No feta? Goat cheese or a spoon of Greek yogurt with lemon zest gives the same tangy finish." },
+    { title: "Make it ahead", text: "Sear the chicken up to a day ahead and keep it in the fridge. Reheat in the pan for 5 minutes, then add the fresh spinach." },
+  ],
   macros: { calories: 520, protein_g: 42, carbs_g: 9, fat_g: 34 },
 } });
 console.log(id);

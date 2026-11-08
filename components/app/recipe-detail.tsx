@@ -3,6 +3,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, CalendarPlus, Loader2 } from "lucide-react";
 import { DAY_NAMES, mondayOf, addDays } from "@/lib/week";
+import type { Heat } from "@/lib/types";
 import { AnimatePresence, m } from "framer-motion";
 import type { RecipeView } from "@/lib/types";
 import { RecipeCard, type UpgradeFeature } from "@/components/funnel/recipe-card";
@@ -53,6 +54,18 @@ function Inner({ recipe, setRecipe }: { recipe: RecipeView; setRecipe: (r: Recip
   const [confirmDel, setConfirmDel] = React.useState(false);
   const [reworking, setReworking] = React.useState(false);
   const [planOpen, setPlanOpen] = React.useState(false);
+  const [heatBusy, setHeatBusy] = React.useState<Heat | null>(null);
+
+  async function changeHeat(h: Heat) {
+    if (h === recipe.heat) return;
+    setHeatBusy(h);
+    const r = await fetch(`/api/recipes/${recipe.id}/heat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ heat: h }) });
+    const d = await r.json().catch(() => ({}));
+    setHeatBusy(null);
+    if (!r.ok) return show(d.message || "Couldn't change the heat. Try again.");
+    setRecipe(d.recipe);
+    show(h === "mild" ? "Cooled down: no chili heat" : h === "extra" ? "Extra hot: bring water to the table" : `Heat set to ${h}`);
+  }
 
   async function rework(items: string[]) {
     setReworking(true);
@@ -150,6 +163,8 @@ function Inner({ recipe, setRecipe }: { recipe: RecipeView; setRecipe: (r: Recip
         onUnlock={openUnlock}
         onUpgrade={openUpgrade}
         onEditIngredients={reworking ? undefined : rework}
+        onHeat={changeHeat}
+        heatBusy={heatBusy}
         actions={{ onFavorite: favorite, onShare: share, onRemix: remix, onDelete: () => setConfirmDel(true), remixing }}
       />
       {confirmDel && (
