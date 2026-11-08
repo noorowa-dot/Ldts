@@ -257,8 +257,31 @@ every table, SQL in `supabase/migrations`) · Vercel (free) · Gemini through `l
   fresh deploys (cold start). A cold-start race (page switch after sign-up closing the checkout) was found and fixed:
   on the landing page, sign-up no longer navigates; the paywall opens in place.
 
+## Week planner, smart shopping list, price comparison (added Nov 8)
+- `/app/plan`: 7 days × lunch/dinner. Add from "My recipes" or type a dish (the chef writes it: `cookFromIdea`, saved with
+  source `idea`, counts 1 recipe). Servings stepper, move to another day, remove. "Build my list" → `/app/shop`.
+- `/app/shop`: `buildShoppingList` (lib/ai.ts) merges every planned meal's ingredients, scaled to the planned servings, into
+  one list in US store packs, grouped by aisle. **"Already at home" is decided on the server**, never by the model:
+  only items seen in the person's fridge photos (last 10 days; sources photo/example/list) or basic staples (salt,
+  pepper, oil, water). Tick-off with progress, "I have it", manual items, edit, share/copy, clear ticked, rebuild
+  (15/day cap). Re-builds keep manual items and ticks.
+- Price check (Pro/Chef): the person's own price book per store (`price_book`), store totals, cheapest single store,
+  "split your shop" savings, cheapest-store chip on each list item. Stores editable (max 5, default Kroger/Walmart/Aldi), ZIP.
+- Live store prices: `lib/prices.ts` provider list. Kroger Products API is wired (client-credentials OAuth, location by
+  ZIP, 24 h cache in `price_cache`) and turns on when `KROGER_CLIENT_ID` + `KROGER_CLIENT_SECRET` are set in Vercel.
+  **Not yet verified against the real API** (no keys). Future store partners plug in as new providers.
+- Plan gating: no plan = 3 dinners/week + **one free smart list** (value before price), then lists need a plan;
+  Starter = 3 dinners + lists; Pro/Chef = lunch + dinner every day (14) + price check.
+- Fridge capture: separate "Take a photo" (camera) and "Upload a photo" (library/files) buttons; drag-and-drop on desktop.
+  "Something wrong? Fix the ingredients": remove/add detected items, then `POST /api/recipes/[id]/rework` remakes the
+  recipe from the corrected list, keeping the photo and the pins of items that were already there.
+- `profiles.answers` is server-only (column update revoked): it holds `free_list_used` and daily list-build counters.
+- Tests: `tests/e2e.spec.ts` (funnel) + `tests/week.spec.ts` (plan → list → price check paywall), green on production.
+
 ## Still to do (owner action)
 - **Google sign-in**: Google OAuth client → redirect URI `https://ftqyrztnxzvvrcfdjkhh.supabase.co/auth/v1/callback`;
   Client ID/secret entered in Supabase → Authentication → Providers → Google; then set NEXT_PUBLIC_GOOGLE_ENABLED=1 and redeploy.
   The Google button stays hidden until then (never a broken button).
 - **Gemini billing** (recommended before promoting): see above.
+- **Kroger live prices** (optional): free developer account at developer.kroger.com → create an app (Production,
+  scope product.compact) → add KROGER_CLIENT_ID / KROGER_CLIENT_SECRET in Vercel → redeploy → verify with a ZIP code.
